@@ -19,6 +19,11 @@ export default function Dashboard() {
     enabled: isAuthenticated,
   });
 
+  const { data: userFranchises, isLoading: franchisesLoading } = useQuery({
+    queryKey: ["/api/user/franchises"],
+    enabled: isAuthenticated,
+  });
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -57,7 +62,7 @@ export default function Dashboard() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <Card>
             <CardContent className="flex items-center p-6">
               <Building className="h-8 w-8 text-blue-500 mr-4" />
@@ -84,6 +89,18 @@ export default function Dashboard() {
 
           <Card>
             <CardContent className="flex items-center p-6">
+              <Building className="h-8 w-8 text-orange-500 mr-4" />
+              <div>
+                <p className="text-sm font-medium text-gray-600">Available Franchises</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {userFranchises?.length || 0}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="flex items-center p-6">
               <User className="h-8 w-8 text-purple-500 mr-4" />
               <div>
                 <p className="text-sm font-medium text-gray-600">Account Status</p>
@@ -95,9 +112,10 @@ export default function Dashboard() {
 
         {/* Content Tabs */}
         <Tabs defaultValue="businesses" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="businesses">My Businesses</TabsTrigger>
             <TabsTrigger value="advertisements">My Advertisements</TabsTrigger>
+            <TabsTrigger value="franchises">Available Franchises</TabsTrigger>
           </TabsList>
 
           <TabsContent value="businesses" className="space-y-6">
@@ -234,6 +252,71 @@ export default function Dashboard() {
                   </p>
                   <Button asChild>
                     <a href="/post-ad">Create Advertisement</a>
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          <TabsContent value="franchises" className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-xl font-semibold">Available Franchises</h2>
+              <Button asChild>
+                <a href="/buy-franchise">
+                  <Eye className="w-4 h-4 mr-2" />
+                  Browse All Franchises
+                </a>
+              </Button>
+            </div>
+
+            {franchisesLoading ? (
+              <div className="flex justify-center py-8">
+                <div className="animate-spin w-6 h-6 border-4 border-primary border-t-transparent rounded-full" />
+              </div>
+            ) : userFranchises && userFranchises.length > 0 ? (
+              <div className="grid gap-6">
+                {userFranchises.map((franchise: any) => (
+                  <Card key={franchise.id}>
+                    <CardContent className="p-6">
+                      <div className="flex justify-between items-start mb-4">
+                        <div>
+                          <h3 className="text-lg font-semibold mb-2">{franchise.name}</h3>
+                          <p className="text-gray-600 mb-2">{franchise.description}</p>
+                          <div className="flex items-center gap-4 text-sm text-gray-500">
+                            <span>{franchise.category}</span>
+                            <span>•</span>
+                            <span>{franchise.country}</span>
+                            {franchise.investmentRange && (
+                              <>
+                                <span>•</span>
+                                <span className="font-medium">{franchise.investmentRange}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="default">Available</Badge>
+                          <Button variant="ghost" size="sm" asChild>
+                            <a href={`/franchise/${franchise.id}`}>
+                              <Eye className="w-4 h-4" />
+                            </a>
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <Card>
+                <CardContent className="p-8 text-center">
+                  <Building className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium mb-2">No franchises available</h3>
+                  <p className="text-gray-600 mb-4">
+                    Check back later for new franchise opportunities.
+                  </p>
+                  <Button asChild>
+                    <a href="/buy-franchise">Browse Franchises</a>
                   </Button>
                 </CardContent>
               </Card>

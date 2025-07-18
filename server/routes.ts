@@ -211,6 +211,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Note: Franchises don't have userId field, so users can view all public franchises
+  app.get("/api/user/franchises", requireAuth, async (req, res) => {
+    try {
+      // Since franchises don't belong to specific users, return all active franchises
+      // This is the same as the public franchise endpoint but requires authentication
+      const franchises = await storage.getAllFranchises();
+      res.json(franchises);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch franchises" });
+    }
+  });
+
   // Franchise routes
   app.get("/api/franchises", async (req, res) => {
     try {
@@ -297,10 +309,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/businesses", async (req, res) => {
+  app.post("/api/businesses", requireAuth, async (req, res) => {
     try {
+      const userId = (req as any).user.id;
       const validatedData = insertBusinessSchema.parse(req.body);
-      const business = await storage.createBusiness(validatedData);
+      
+      // Add userId to the business data
+      const businessData = {
+        ...validatedData,
+        userId: userId
+      };
+      
+      const business = await storage.createBusiness(businessData);
       res.status(201).json(business);
     } catch (error) {
       console.error("Business creation error:", error);
@@ -350,10 +370,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/advertisements", async (req, res) => {
+  app.post("/api/advertisements", requireAuth, async (req, res) => {
     try {
+      const userId = (req as any).user.id;
       const validatedData = insertAdvertisementSchema.parse(req.body);
-      const advertisement = await storage.createAdvertisement(validatedData);
+      
+      // Add userId to the advertisement data
+      const advertisementData = {
+        ...validatedData,
+        userId: userId
+      };
+      
+      const advertisement = await storage.createAdvertisement(advertisementData);
       res.status(201).json(advertisement);
     } catch (error) {
       console.error("Advertisement creation error:", error);
