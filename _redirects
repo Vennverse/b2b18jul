@@ -1,0 +1,10 @@
+/api/franchises /.netlify/functions/franchises 200
+/api/businesses /.netlify/functions/businesses 200
+/api/advertisements /.netlify/functions/advertisements 200
+/api/inquiries /.netlify/functions/inquiries 200
+/api/auth/* /.netlify/functions/auth 200
+/api/payments/* /.netlify/functions/payments 200
+/api/admin/* /.netlify/functions/admin 200
+/api/create-payment-intent /.netlify/functions/payments/create-payment-intent 200
+/api/create-subscription /.netlify/functions/payments/create-subscription 200
+/* /index.html 200
