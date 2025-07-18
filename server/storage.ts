@@ -25,6 +25,11 @@ export interface IStorage {
   getUserBusinesses(userId: number): Promise<Business[]>;
   getUserAdvertisements(userId: number): Promise<Advertisement[]>;
   
+  // Customer editing functionality
+  updateBusiness(id: number, data: Partial<Business>): Promise<Business | undefined>;
+  updateAdvertisement(id: number, data: Partial<Advertisement>): Promise<Advertisement | undefined>;
+  getAdvertisementById(id: number): Promise<Advertisement | undefined>;
+  
   getAllFranchises(): Promise<Franchise[]>;
   getAllFranchisesForAdmin(): Promise<Franchise[]>;
   getFranchiseById(id: number): Promise<Franchise | undefined>;
@@ -326,6 +331,35 @@ export class DatabaseStorage implements IStorage {
       .set({ used: true })
       .where(eq(passwordResetTokens.token, token));
   }
+
+  async getAdvertisementById(id: number): Promise<Advertisement | undefined> {
+    const [advertisement] = await db.select().from(advertisements).where(eq(advertisements.id, id));
+    return advertisement || undefined;
+  }
+
+  async updateBusiness(id: number, data: Partial<Business>): Promise<Business | undefined> {
+    // Filter out fields that customers shouldn't be able to change
+    const { status, isActive, paymentStatus, userId, createdAt, ...updateData } = data;
+    
+    const business = await db.update(businesses)
+      .set(updateData)
+      .where(eq(businesses.id, id))
+      .returning();
+    
+    return business[0] || undefined;
+  }
+
+  async updateAdvertisement(id: number, data: Partial<Advertisement>): Promise<Advertisement | undefined> {
+    // Filter out fields that customers shouldn't be able to change
+    const { status, isActive, paymentStatus, userId, createdAt, ...updateData } = data;
+    
+    const advertisement = await db.update(advertisements)
+      .set(updateData)
+      .where(eq(advertisements.id, id))
+      .returning();
+    
+    return advertisement[0] || undefined;
+  }
 }
 
 export class MemStorage implements IStorage {
@@ -526,6 +560,7 @@ export class MemStorage implements IStorage {
       password: insertUser.password,
       firstName: insertUser.firstName || null,
       lastName: insertUser.lastName || null,
+      role: insertUser.role || "customer",
       isActive: true,
       createdAt: new Date()
     };
@@ -649,6 +684,7 @@ export class MemStorage implements IStorage {
       status: "pending",
       paymentStatus: "unpaid",
       isActive: false,
+      userId: insertBusiness.userId || null,
       createdAt: new Date()
     };
     this.businesses.set(id, business);
@@ -696,6 +732,7 @@ export class MemStorage implements IStorage {
       status: "pending",
       paymentStatus: "unpaid",
       isActive: false,
+      userId: insertAd.userId || null,
       createdAt: new Date()
     };
     this.advertisements.set(id, ad);
@@ -785,6 +822,47 @@ export class MemStorage implements IStorage {
       resetToken.used = true;
       this.passwordResetTokens.set(token, resetToken);
     }
+  }
+
+  async getAdvertisementById(id: number): Promise<Advertisement | undefined> {
+    return this.advertisements.get(id);
+  }
+
+  async updateBusiness(id: number, data: Partial<Business>): Promise<Business | undefined> {
+    const business = this.businesses.get(id);
+    if (!business) return undefined;
+    
+    // Filter out fields that customers shouldn't be able to change and update the business
+    const { status, isActive, paymentStatus, userId, createdAt, ...updateData } = data;
+    Object.assign(business, updateData);
+    
+    this.businesses.set(id, business);
+    return business;
+  }
+
+  async updateAdvertisement(id: number, data: Partial<Advertisement>): Promise<Advertisement | undefined> {
+    const advertisement = this.advertisements.get(id);
+    if (!advertisement) return undefined;
+    
+    // Filter out fields that customers shouldn't be able to change and update the advertisement
+    const { status, isActive, paymentStatus, userId, createdAt, ...updateData } = data;
+    Object.assign(advertisement, updateData);
+    
+    this.advertisements.set(id, advertisement);
+    return advertisement;
+  }
+
+  async getAllFranchisesForAdmin(): Promise<Franchise[]> {
+    return Array.from(this.franchises.values());
+  }
+
+  async updateFranchiseStatus(id: number, isActive: boolean): Promise<Franchise | undefined> {
+    const franchise = this.franchises.get(id);
+    if (!franchise) return undefined;
+    
+    franchise.isActive = isActive;
+    this.franchises.set(id, franchise);
+    return franchise;
   }
 }
 

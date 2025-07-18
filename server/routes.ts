@@ -360,6 +360,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Customer endpoint to edit their own business (without changing status/activation)
+  app.patch("/api/businesses/:id", requireAuth, async (req, res) => {
+    try {
+      const userId = (req as any).user.id;
+      const businessId = parseInt(req.params.id);
+      
+      // Check if business exists and belongs to user
+      const existingBusiness = await storage.getBusinessById(businessId);
+      if (!existingBusiness) {
+        return res.status(404).json({ error: "Business not found" });
+      }
+      
+      if (existingBusiness.userId !== userId) {
+        return res.status(403).json({ error: "You can only edit your own businesses" });
+      }
+      
+      // Parse and validate the update data (excluding status/activation fields)
+      const updateSchema = insertBusinessSchema.omit({ userId: true }).partial();
+      const validatedData = updateSchema.parse(req.body);
+      
+      // Update the business (preserving status and isActive)
+      const updatedBusiness = await storage.updateBusiness(businessId, validatedData);
+      if (!updatedBusiness) {
+        return res.status(404).json({ error: "Business not found" });
+      }
+      
+      res.json(updatedBusiness);
+    } catch (error) {
+      console.error("Business update error:", error);
+      res.status(400).json({ error: "Invalid business data" });
+    }
+  });
+
   // Admin endpoint to get all businesses including pending ones
   app.get("/api/admin/businesses", async (req, res) => {
     try {
@@ -417,6 +450,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(advertisement);
     } catch (error) {
       console.error("Advertisement creation error:", error);
+      res.status(400).json({ error: "Invalid advertisement data" });
+    }
+  });
+
+  // Customer endpoint to edit their own advertisement (without changing status/activation)
+  app.patch("/api/advertisements/:id", requireAuth, async (req, res) => {
+    try {
+      const userId = (req as any).user.id;
+      const advertisementId = parseInt(req.params.id);
+      
+      // Check if advertisement exists and belongs to user
+      const existingAd = await storage.getAdvertisementById(advertisementId);
+      if (!existingAd) {
+        return res.status(404).json({ error: "Advertisement not found" });
+      }
+      
+      if (existingAd.userId !== userId) {
+        return res.status(403).json({ error: "You can only edit your own advertisements" });
+      }
+      
+      // Parse and validate the update data (excluding status/activation fields)
+      const updateSchema = insertAdvertisementSchema.omit({ userId: true }).partial();
+      const validatedData = updateSchema.parse(req.body);
+      
+      // Update the advertisement (preserving status and isActive)
+      const updatedAd = await storage.updateAdvertisement(advertisementId, validatedData);
+      if (!updatedAd) {
+        return res.status(404).json({ error: "Advertisement not found" });
+      }
+      
+      res.json(updatedAd);
+    } catch (error) {
+      console.error("Advertisement update error:", error);
       res.status(400).json({ error: "Invalid advertisement data" });
     }
   });

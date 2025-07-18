@@ -5,9 +5,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Building, MessageSquare, User, Plus, Eye, Edit, Trash2 } from "lucide-react";
+import { EditBusinessModal } from "@/components/EditBusinessModal";
+import { EditAdvertisementModal } from "@/components/EditAdvertisementModal";
+import { useState } from "react";
+import type { Business, Advertisement } from "@shared/schema";
 
 export default function Dashboard() {
   const { user, isLoading, isAuthenticated } = useAuth();
+  const [editingBusiness, setEditingBusiness] = useState<Business | null>(null);
+  const [editingAdvertisement, setEditingAdvertisement] = useState<Advertisement | null>(null);
 
   const { data: userBusinesses, isLoading: businessesLoading } = useQuery({
     queryKey: ["/api/user/businesses"],
@@ -163,8 +169,8 @@ export default function Dashboard() {
                               {business.status}
                             </Badge>
                           </div>
-                          <Button variant="ghost" size="sm" title="View Details">
-                            <Eye className="w-4 h-4" />
+                          <Button variant="ghost" size="sm" onClick={() => setEditingBusiness(business)} title="Edit Business">
+                            <Edit className="w-4 h-4" />
                           </Button>
                         </div>
                       </div>
@@ -227,8 +233,8 @@ export default function Dashboard() {
                               {ad.status}
                             </Badge>
                           </div>
-                          <Button variant="ghost" size="sm" title="View Details">
-                            <Eye className="w-4 h-4" />
+                          <Button variant="ghost" size="sm" onClick={() => setEditingAdvertisement(ad)} title="Edit Advertisement">
+                            <Edit className="w-4 h-4" />
                           </Button>
                         </div>
                       </div>
@@ -317,6 +323,23 @@ export default function Dashboard() {
             )}
           </TabsContent>
         </Tabs>
+
+        {/* Edit Modals */}
+        {editingBusiness && (
+          <EditBusinessModal
+            business={editingBusiness}
+            isOpen={!!editingBusiness}
+            onClose={() => setEditingBusiness(null)}
+          />
+        )}
+
+        {editingAdvertisement && (
+          <EditAdvertisementModal
+            advertisement={editingAdvertisement}
+            isOpen={!!editingAdvertisement}
+            onClose={() => setEditingAdvertisement(null)}
+          />
+        )}
       </div>
     </div>
   );
