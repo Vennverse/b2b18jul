@@ -30,25 +30,38 @@ export const handler: Handler = async (event) => {
     if (event.httpMethod === 'GET') {
       const { category, country, state, maxPrice } = event.queryStringParameters || {};
       
-      let query = db.select().from(businesses).where(eq(businesses.isActive, true));
-      
-      // Add filters if provided
+      // Use raw SQL to match your exact database schema
+      let sql = 'SELECT * FROM businesses WHERE is_active = true';
       const conditions = [];
-      if (category) conditions.push(eq(businesses.category, category));
-      if (country) conditions.push(eq(businesses.country, country));
-      if (state) conditions.push(eq(businesses.state, state));
-      if (maxPrice) conditions.push(lte(businesses.price, parseInt(maxPrice)));
+      const params = [];
       
-      if (conditions.length > 0) {
-        query = query.where(and(...conditions));
+      if (category) {
+        conditions.push(`category = $${params.length + 1}`);
+        params.push(category);
+      }
+      if (country) {
+        conditions.push(`country = $${params.length + 1}`);
+        params.push(country);
+      }
+      if (state) {
+        conditions.push(`state = $${params.length + 1}`);
+        params.push(state);
+      }
+      if (maxPrice) {
+        conditions.push(`price <= $${params.length + 1}`);
+        params.push(parseInt(maxPrice));
       }
       
-      const result = await query;
+      if (conditions.length > 0) {
+        sql += ' AND ' + conditions.join(' AND ');
+      }
+      
+      const result = await pool.query(sql, params);
       
       return {
         statusCode: 200,
         headers,
-        body: JSON.stringify(result),
+        body: JSON.stringify(result.rows),
       };
     }
 

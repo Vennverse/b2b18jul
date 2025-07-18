@@ -33,32 +33,49 @@ export const handler: Handler = async (event) => {
       // Check if this is an admin request (looking for /api/admin/franchises)
       const isAdminRequest = event.path.includes('/admin/franchises');
       
-      let query = isAdminRequest 
-        ? db.select().from(franchises) // Admin sees all franchises
-        : db.select().from(franchises).where(eq(franchises.isActive, true)); // Public sees only active
+      // Use raw SQL to match your exact database schema
+      let sql = isAdminRequest 
+        ? 'SELECT * FROM franchises' // Admin sees all franchises
+        : 'SELECT * FROM franchises WHERE is_active = true'; // Public sees only active
       
-      // Add filters if provided
       const conditions = [];
-      if (category) conditions.push(eq(franchises.category, category));
-      if (country) conditions.push(eq(franchises.country, country));
-      if (state) conditions.push(eq(franchises.state, state));
+      const params = [];
+      
+      if (category) {
+        conditions.push(`category = $${params.length + 1}`);
+        params.push(category);
+      }
+      if (country) {
+        conditions.push(`country = $${params.length + 1}`);
+        params.push(country);
+      }
+      if (state) {
+        conditions.push(`state = $${params.length + 1}`);
+        params.push(state);
+      }
       
       if (priceRange) {
         const [min, max] = priceRange.split('-').map(Number);
-        if (min) conditions.push(gte(franchises.investmentMin, min));
-        if (max) conditions.push(lte(franchises.investmentMax, max));
+        if (min) {
+          conditions.push(`investment_min >= $${params.length + 1}`);
+          params.push(min);
+        }
+        if (max) {
+          conditions.push(`investment_max <= $${params.length + 1}`);
+          params.push(max);
+        }
       }
       
       if (conditions.length > 0) {
-        query = query.where(and(...conditions));
+        sql += (isAdminRequest ? ' WHERE ' : ' AND ') + conditions.join(' AND ');
       }
       
-      const result = await query;
+      const result = await pool.query(sql, params);
       
       return {
         statusCode: 200,
         headers,
-        body: JSON.stringify(result),
+        body: JSON.stringify(result.rows),
       };
     }
 
