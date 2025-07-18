@@ -22,14 +22,8 @@ import Pricing from "@/pages/pricing";
 import Dashboard from "@/pages/dashboard";
 import ResetPassword from "@/pages/ResetPassword";
 
-// Protected route wrapper for admin-only access
+// Admin route - no access restrictions
 function AdminRoute() {
-  // Add warning message for unauthorized access attempts
-  const hasValidToken = localStorage.getItem("auth_token");
-  if (!hasValidToken) {
-    console.warn("🚨 Unauthorized access attempt to admin route - no token found");
-  }
-  
   return <Admin />;
 }
 
@@ -45,7 +39,7 @@ function Router() {
 
       <Route path="/contact" component={Contact} />
       <Route path="/about" component={About} />
-      <Route path="/admin" component={AdminRoute} />
+      <Route path="/adminb2b" component={AdminRoute} />
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/checkout" component={Checkout} />
       <Route path="/subscribe" component={Subscribe} />

@@ -309,10 +309,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin endpoint to get all businesses including pending ones
-  app.get("/api/admin/businesses", requireAdmin, async (req, res) => {
+  app.get("/api/admin/businesses", async (req, res) => {
     try {
       const businesses = await storage.getAllBusinessesForAdmin();
-      console.log(`📊 ADMIN: ${(req as any).user.email} retrieved ${businesses.length} businesses`);
+      console.log(`📊 ADMIN: Retrieved ${businesses.length} businesses`);
       res.json(businesses);
     } catch (error) {
       console.error("Error fetching businesses for admin:", error);
@@ -321,7 +321,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin endpoint to update business status
-  app.patch("/api/businesses/:id/status", requireAdmin, async (req, res) => {
+  app.patch("/api/businesses/:id/status", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const { status, isActive } = req.body;
@@ -362,10 +362,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin endpoint to get all advertisements including pending ones
-  app.get("/api/admin/advertisements", requireAdmin, async (req, res) => {
+  app.get("/api/admin/advertisements", async (req, res) => {
     try {
       const ads = await storage.getAllAdvertisementsForAdmin();
-      console.log(`📊 ADMIN: ${(req as any).user.email} retrieved ${ads.length} advertisements`);
+      console.log(`📊 ADMIN: Retrieved ${ads.length} advertisements`);
       res.json(ads);
     } catch (error) {
       console.error("Error fetching advertisements for admin:", error);
@@ -374,7 +374,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin endpoint to update advertisement status
-  app.patch("/api/advertisements/:id/status", requireAdmin, async (req, res) => {
+  app.patch("/api/advertisements/:id/status", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const { status, isActive } = req.body;
@@ -393,11 +393,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Inquiry routes (Admin-only access)
-  app.get("/api/inquiries", requireAdmin, async (req, res) => {
+  // Inquiry routes (No access restrictions)
+  app.get("/api/inquiries", async (req, res) => {
     try {
       const inquiries = await storage.getAllInquiries();
-      console.log(`📊 ADMIN: ${(req as any).user.email} retrieved ${inquiries.length} inquiries`);
+      console.log(`📊 ADMIN: Retrieved ${inquiries.length} inquiries`);
       res.json(inquiries);
     } catch (error) {
       console.error("Error fetching inquiries for admin:", error);
@@ -428,7 +428,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/inquiries/:id/status", requireAdmin, async (req, res) => {
+  app.patch("/api/inquiries/:id/status", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const { status } = req.body;
