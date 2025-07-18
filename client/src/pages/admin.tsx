@@ -18,48 +18,7 @@ export default function Admin() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
-  const [currentUser, setCurrentUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-
-  // Check if user is admin
-  const checkAuth = async () => {
-    const token = localStorage.getItem("auth_token");
-    if (!token) {
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const response = await fetch("/api/auth/me", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      
-      if (response.ok) {
-        const userData = await response.json();
-        // Extra security: Double-check role on frontend
-        if (userData.role === 'admin') {
-          setCurrentUser(userData);
-        } else {
-          console.warn("Access denied: User is not an admin");
-          localStorage.removeItem("auth_token"); // Clear invalid token
-          setCurrentUser(null);
-        }
-      } else {
-        console.warn("Auth check failed with status:", response.status);
-        localStorage.removeItem("auth_token"); // Clear invalid token
-        setCurrentUser(null);
-      }
-    } catch (error) {
-      console.error("Auth check failed:", error);
-      localStorage.removeItem("auth_token"); // Clear invalid token
-      setCurrentUser(null);
-    }
-    setLoading(false);
-  };
-
-  useEffect(() => {
-    checkAuth();
-  }, []);
+  // No authentication required - admin page is open access
 
   const { data: inquiries = [], isLoading: inquiriesLoading } = useQuery<Inquiry[]>({
     queryKey: ['/api/inquiries'],
@@ -181,57 +140,9 @@ export default function Admin() {
     }
   };
 
-  // Show loading state
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <Header />
-        <div className="container mx-auto px-4 py-8">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Loading...</p>
-          </div>
-        </div>
-        <Footer />
-      </div>
-    );
-  }
+  // No authentication checks - open access admin page
 
-  // Check if user is admin with enhanced security
-  if (!currentUser || currentUser.role !== 'admin') {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <Header />
-        <div className="container mx-auto px-4 py-8">
-          <div className="text-center">
-            <div className="bg-red-50 border border-red-200 rounded-lg p-6 mb-6 max-w-md mx-auto">
-              <h1 className="text-2xl font-bold text-red-800 mb-2">🚫 Access Denied</h1>
-              <p className="text-red-700 mb-4">This page is restricted to administrators only.</p>
-              <p className="text-sm text-red-600 mb-6">
-                {!currentUser ? "Please sign in with an admin account." : "Your current account does not have admin privileges."}
-              </p>
-              <div className="space-y-2">
-                <a href="/" className="block bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors">
-                  Return to Home
-                </a>
-                {!currentUser && (
-                  <button 
-                    onClick={() => window.location.href = "/?login=true"}
-                    className="block w-full bg-gray-600 text-white px-6 py-3 rounded-lg hover:bg-gray-700 transition-colors"
-                  >
-                    Sign In
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-        <Footer />
-      </div>
-    );
-  }
-
-  if (inquiriesLoading || adsLoading) {
+  if (inquiriesLoading || adsLoading || businessesLoading) {
     return (
       <div className="min-h-screen bg-gray-50">
         <Header />
