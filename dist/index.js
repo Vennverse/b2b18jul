@@ -205,204 +205,31 @@ function parsePriceRange(priceRange) {
     max: parseAmount(maxStr)
   };
 }
-var MemStorage = class {
-  users;
-  franchises;
-  businesses;
-  advertisements;
-  inquiries;
-  passwordResetTokens;
-  currentUserId;
-  currentFranchiseId;
-  currentBusinessId;
-  currentAdId;
-  currentInquiryId;
-  currentTokenId;
-  constructor() {
-    this.users = /* @__PURE__ */ new Map();
-    this.franchises = /* @__PURE__ */ new Map();
-    this.businesses = /* @__PURE__ */ new Map();
-    this.advertisements = /* @__PURE__ */ new Map();
-    this.inquiries = /* @__PURE__ */ new Map();
-    this.passwordResetTokens = /* @__PURE__ */ new Map();
-    this.currentUserId = 1;
-    this.currentFranchiseId = 1;
-    this.currentBusinessId = 1;
-    this.currentAdId = 1;
-    this.currentInquiryId = 1;
-    this.currentTokenId = 1;
-    this.initializeSampleData();
-  }
-  initializeSampleData() {
-    const sampleFranchises = [
-      {
-        name: "MILKSTER",
-        description: "Premium coffee franchise with specialty drinks",
-        category: "Coffee",
-        country: "USA",
-        state: "California",
-        investmentRange: "$50K-$100K",
-        imageUrl: "https://images.unsplash.com/photo-1554118811-1e0d58224f24?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=250",
-        contactEmail: "info@milkster.com",
-        investmentMin: 5e4,
-        investmentMax: 1e5,
-        isActive: true
-      },
-      {
-        name: "BrightStar Care",
-        description: "Healthcare and senior care services",
-        category: "Health, Beauty & Nutrition",
-        country: "USA",
-        state: "Texas",
-        investmentRange: "$250K-$500K",
-        imageUrl: "https://images.unsplash.com/photo-1559757148-5c350d0d3c56?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=250",
-        contactEmail: "franchise@brightstarcare.com",
-        investmentMin: 25e4,
-        investmentMax: 5e5,
-        isActive: true
-      },
-      {
-        name: "College Hunks Hauling Junk and Moving",
-        description: "Professional moving and junk removal services",
-        category: "Moving Services",
-        country: "USA",
-        state: "Florida",
-        investmentRange: "$100K-$250K",
-        imageUrl: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=250",
-        contactEmail: "franchise@collegehunks.com",
-        investmentMin: 1e5,
-        investmentMax: 25e4,
-        isActive: true
-      },
-      {
-        name: "Home Team Inspection Service",
-        description: "Professional home inspection services",
-        category: "Home & Garden",
-        country: "USA",
-        state: "Georgia",
-        investmentRange: "$50K-$100K",
-        imageUrl: "https://images.unsplash.com/photo-1560518883-ce09059eeffa?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=250",
-        contactEmail: "franchise@hometeam.com",
-        investmentMin: 5e4,
-        investmentMax: 1e5,
-        isActive: true
-      },
-      {
-        name: "Mr. Handyman",
-        description: "Professional handyman and repair services",
-        category: "Home & Garden",
-        country: "USA",
-        state: "Ohio",
-        investmentRange: "$100K-$250K",
-        imageUrl: "https://images.unsplash.com/photo-1581578731548-c64695cc6952?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=250",
-        contactEmail: "franchise@mrhandyman.com",
-        investmentMin: 1e5,
-        investmentMax: 25e4,
-        isActive: true
-      },
-      {
-        name: "Mr. Rooter Plumbing",
-        description: "Professional plumbing services",
-        category: "Home & Garden",
-        country: "USA",
-        state: "Michigan",
-        investmentRange: "$250K-$500K",
-        imageUrl: "https://images.unsplash.com/photo-1607472586893-edb57bdc0e39?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=250",
-        contactEmail: "franchise@mrrooter.com",
-        investmentMin: 25e4,
-        investmentMax: 5e5,
-        isActive: true
-      },
-      {
-        name: "Sport Clips",
-        description: "Men's hair salon franchise",
-        category: "Health, Beauty & Nutrition",
-        country: "USA",
-        state: "Colorado",
-        investmentRange: "$100K-$250K",
-        imageUrl: "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=250",
-        contactEmail: "franchise@sportclips.com",
-        investmentMin: 1e5,
-        investmentMax: 25e4,
-        isActive: true
-      },
-      {
-        name: "Supercuts",
-        description: "Affordable hair salon chain",
-        category: "Health, Beauty & Nutrition",
-        country: "USA",
-        state: "Washington",
-        investmentRange: "$100K-$250K",
-        imageUrl: "https://images.unsplash.com/photo-1560066984-138dadb4c035?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=250",
-        contactEmail: "franchise@supercuts.com",
-        investmentMin: 1e5,
-        investmentMax: 25e4,
-        isActive: true
-      }
-    ];
-    sampleFranchises.forEach((franchise) => {
-      this.createFranchise(franchise);
-    });
-    const sampleBusinesses = [
-      {
-        name: "Downtown Coffee Shop",
-        description: "Established coffee shop in prime downtown location",
-        category: "Food & Beverage",
-        country: "USA",
-        state: "New York",
-        price: 125e3,
-        imageUrl: "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=250",
-        contactEmail: "seller@downtowncoffee.com",
-        isActive: true
-      },
-      {
-        name: "Tech Consulting Firm",
-        description: "Growing IT consulting business with established client base",
-        category: "Technology",
-        country: "USA",
-        state: "California",
-        price: 35e4,
-        imageUrl: "https://images.unsplash.com/photo-1542744173-8e7e53415bb0?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=250",
-        contactEmail: "seller@techconsult.com",
-        isActive: true
-      }
-    ];
-    sampleBusinesses.forEach((business) => {
-      this.createBusiness(business);
-    });
-  }
+var DatabaseStorage = class {
   async getUser(id) {
-    return this.users.get(id);
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || void 0;
   }
   async getUserByEmail(email) {
-    const users2 = Array.from(this.users.values());
-    return users2.find((user) => user.email === email);
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user || void 0;
   }
   async getUserBusinesses(userId) {
-    return Array.from(this.businesses.values()).filter((business) => business.userId === userId);
+    return await db.select().from(businesses).where(eq(businesses.userId, userId));
   }
   async getUserAdvertisements(userId) {
-    return Array.from(this.advertisements.values()).filter((ad) => ad.userId === userId);
+    return await db.select().from(advertisements).where(eq(advertisements.userId, userId));
   }
   async createUser(insertUser) {
-    const id = this.currentUserId++;
-    const user = {
-      id,
-      email: insertUser.email,
-      password: insertUser.password,
-      firstName: insertUser.firstName || null,
-      lastName: insertUser.lastName || null,
-      isActive: true,
-      createdAt: /* @__PURE__ */ new Date()
-    };
-    this.users.set(id, user);
+    const [user] = await db.insert(users).values(insertUser).returning();
     return user;
   }
   async getAllFranchises() {
-    return Array.from(this.franchises.values()).filter((f) => f.isActive);
+    return await db.select().from(franchises).where(eq(franchises.isActive, true));
   }
   async getFranchiseById(id) {
-    return this.franchises.get(id);
+    const [franchise] = await db.select().from(franchises).where(eq(franchises.id, id));
+    return franchise || void 0;
   }
   async searchFranchises(filters) {
     const allFranchises = await this.getAllFranchises();
@@ -430,30 +257,25 @@ var MemStorage = class {
     });
   }
   async createFranchise(insertFranchise) {
-    const id = this.currentFranchiseId++;
-    const franchise = {
-      id,
-      name: insertFranchise.name,
-      description: insertFranchise.description || null,
-      category: insertFranchise.category,
-      country: insertFranchise.country,
-      state: insertFranchise.state || null,
-      investmentRange: insertFranchise.investmentRange || null,
-      imageUrl: insertFranchise.imageUrl || null,
-      contactEmail: insertFranchise.contactEmail || null,
-      investmentMin: insertFranchise.investmentMin || null,
-      investmentMax: insertFranchise.investmentMax || null,
-      isActive: insertFranchise.isActive ?? true,
-      createdAt: /* @__PURE__ */ new Date()
-    };
-    this.franchises.set(id, franchise);
+    const [franchise] = await db.insert(franchises).values(insertFranchise).returning();
     return franchise;
   }
+  async getAllFranchisesForAdmin() {
+    return await db.select().from(franchises);
+  }
+  async updateFranchiseStatus(id, isActive) {
+    const [franchise] = await db.update(franchises).set({ isActive }).where(eq(franchises.id, id)).returning();
+    return franchise || void 0;
+  }
   async getAllBusinesses() {
-    return Array.from(this.businesses.values()).filter((b) => b.isActive);
+    return await db.select().from(businesses).where(eq(businesses.isActive, true));
+  }
+  async getAllBusinessesForAdmin() {
+    return await db.select().from(businesses);
   }
   async getBusinessById(id) {
-    return this.businesses.get(id);
+    const [business] = await db.select().from(businesses).where(eq(businesses.id, id));
+    return business || void 0;
   }
   async searchBusinesses(filters) {
     const allBusinesses = await this.getAllBusinesses();
@@ -474,149 +296,80 @@ var MemStorage = class {
     });
   }
   async createBusiness(insertBusiness) {
-    const id = this.currentBusinessId++;
-    const business = {
-      id,
-      name: insertBusiness.name,
-      description: insertBusiness.description || null,
-      category: insertBusiness.category,
-      country: insertBusiness.country,
-      state: insertBusiness.state || null,
-      price: insertBusiness.price || null,
-      imageUrl: insertBusiness.imageUrl || null,
-      contactEmail: insertBusiness.contactEmail || null,
-      package: insertBusiness.package || null,
-      yearEstablished: insertBusiness.yearEstablished || null,
-      employees: insertBusiness.employees || null,
-      revenue: insertBusiness.revenue || null,
-      reason: insertBusiness.reason || null,
-      assets: insertBusiness.assets || null,
+    const [business] = await db.insert(businesses).values({
+      ...insertBusiness,
       status: "pending",
       paymentStatus: "unpaid",
-      isActive: false,
-      createdAt: /* @__PURE__ */ new Date()
-    };
-    this.businesses.set(id, business);
+      isActive: false
+    }).returning();
     return business;
-  }
-  async getAllBusinessesForAdmin() {
-    return Array.from(this.businesses.values());
   }
   async updateBusinessStatus(id, status, isActive) {
-    const business = this.businesses.get(id);
-    if (!business) return void 0;
-    business.status = status;
+    const updateData = { status };
     if (isActive !== void 0) {
-      business.isActive = isActive;
+      updateData.isActive = isActive;
     }
-    this.businesses.set(id, business);
-    return business;
+    const [business] = await db.update(businesses).set(updateData).where(eq(businesses.id, id)).returning();
+    return business || void 0;
   }
   async getAllAdvertisements() {
-    return Array.from(this.advertisements.values()).filter((ad) => ad.isActive);
+    return await db.select().from(advertisements).where(eq(advertisements.isActive, true));
   }
   async getAllAdvertisementsForAdmin() {
-    return Array.from(this.advertisements.values());
+    return await db.select().from(advertisements);
   }
   async createAdvertisement(insertAd) {
-    const id = this.currentAdId++;
-    const ad = {
-      id,
-      title: insertAd.title,
-      description: insertAd.description || null,
-      imageUrl: insertAd.imageUrl,
-      targetUrl: insertAd.targetUrl || null,
-      package: insertAd.package || null,
-      company: insertAd.company || null,
-      contactEmail: insertAd.contactEmail || null,
-      contactPhone: insertAd.contactPhone || null,
-      budget: insertAd.budget || null,
+    const [ad] = await db.insert(advertisements).values({
+      ...insertAd,
       status: "pending",
       paymentStatus: "unpaid",
-      isActive: false,
-      createdAt: /* @__PURE__ */ new Date()
-    };
-    this.advertisements.set(id, ad);
+      isActive: false
+    }).returning();
     return ad;
   }
   async updateAdvertisementStatus(id, status, isActive) {
-    const ad = this.advertisements.get(id);
-    if (ad) {
-      ad.status = status;
-      if (isActive !== void 0) {
-        ad.isActive = isActive;
-      }
-      this.advertisements.set(id, ad);
-      return ad;
+    const updateData = { status };
+    if (isActive !== void 0) {
+      updateData.isActive = isActive;
     }
-    return void 0;
+    const [ad] = await db.update(advertisements).set(updateData).where(eq(advertisements.id, id)).returning();
+    return ad || void 0;
   }
   async getAllInquiries() {
-    return Array.from(this.inquiries.values());
+    return await db.select().from(inquiries);
   }
   async createInquiry(insertInquiry) {
-    const id = this.currentInquiryId++;
-    const inquiry = {
-      id,
-      name: insertInquiry.name,
-      email: insertInquiry.email,
-      phone: insertInquiry.phone || null,
-      subject: insertInquiry.subject,
-      message: insertInquiry.message,
-      franchiseId: insertInquiry.franchiseId || null,
-      businessId: insertInquiry.businessId || null,
-      status: insertInquiry.status || "pending",
-      createdAt: /* @__PURE__ */ new Date()
-    };
-    this.inquiries.set(id, inquiry);
+    const [inquiry] = await db.insert(inquiries).values(insertInquiry).returning();
     return inquiry;
   }
   async getInquiryById(id) {
-    return this.inquiries.get(id);
+    const [inquiry] = await db.select().from(inquiries).where(eq(inquiries.id, id));
+    return inquiry || void 0;
   }
   async updateInquiryStatus(id, status) {
-    const inquiry = this.inquiries.get(id);
-    if (inquiry) {
-      inquiry.status = status;
-      this.inquiries.set(id, inquiry);
-      return inquiry;
-    }
-    return void 0;
+    const [inquiry] = await db.update(inquiries).set({ status }).where(eq(inquiries.id, id)).returning();
+    return inquiry || void 0;
   }
   async updateUserPassword(email, hashedPassword) {
-    const users2 = Array.from(this.users.values());
-    const user = users2.find((u) => u.email === email);
-    if (user) {
-      user.password = hashedPassword;
-      this.users.set(user.id, user);
-      return user;
-    }
-    return void 0;
+    const [user] = await db.update(users).set({ password: hashedPassword }).where(eq(users.email, email)).returning();
+    return user;
   }
   async createPasswordResetToken(email, token, expiresAt) {
-    const id = this.currentTokenId++;
-    const resetToken = {
-      id,
+    await db.insert(passwordResetTokens).values({
       email,
       token,
-      expiresAt,
-      used: false,
-      createdAt: /* @__PURE__ */ new Date()
-    };
-    this.passwordResetTokens.set(token, resetToken);
+      expiresAt
+    });
   }
   async getPasswordResetToken(token) {
-    return this.passwordResetTokens.get(token);
+    const [resetToken] = await db.select().from(passwordResetTokens).where(eq(passwordResetTokens.token, token));
+    return resetToken;
   }
   async markPasswordResetTokenUsed(token) {
-    const resetToken = this.passwordResetTokens.get(token);
-    if (resetToken) {
-      resetToken.used = true;
-      this.passwordResetTokens.set(token, resetToken);
-    }
+    await db.update(passwordResetTokens).set({ used: true }).where(eq(passwordResetTokens.token, token));
   }
 };
-var storage = new MemStorage();
+var storage = new DatabaseStorage();
 
 // server/routes.ts
 import crypto from "crypto";
@@ -686,16 +439,6 @@ async function requireAuth(req, res, next) {
     console.error("Auth middleware error:", error);
     res.status(500).json({ error: "Authentication error" });
   }
-}
-async function requireAdmin(req, res, next) {
-  await requireAuth(req, res, (err) => {
-    if (err) return next(err);
-    const user = req.user;
-    if (!user || user.role !== "admin") {
-      return res.status(403).json({ error: "Admin access required" });
-    }
-    next();
-  });
 }
 
 // server/emailService.ts
@@ -1002,6 +745,14 @@ async function registerRoutes(app2) {
       res.status(500).json({ error: "Failed to fetch user advertisements" });
     }
   });
+  app2.get("/api/user/franchises", requireAuth, async (req, res) => {
+    try {
+      const franchises2 = await storage.getAllFranchises();
+      res.json(franchises2);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch franchises" });
+    }
+  });
   app2.get("/api/franchises", async (req, res) => {
     try {
       const franchises2 = await storage.getAllFranchises();
@@ -1034,6 +785,32 @@ async function registerRoutes(app2) {
       res.json(franchise);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch franchise" });
+    }
+  });
+  app2.get("/api/admin/franchises", async (req, res) => {
+    try {
+      const franchises2 = await storage.getAllFranchisesForAdmin();
+      console.log(`\u{1F4CA} ADMIN: Retrieved ${franchises2.length} franchises`);
+      res.json(franchises2);
+    } catch (error) {
+      console.error("Error fetching franchises for admin:", error);
+      res.status(500).json({ error: "Failed to fetch franchises" });
+    }
+  });
+  app2.patch("/api/franchises/:id/status", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { isActive } = req.body;
+      if (typeof isActive !== "boolean") {
+        return res.status(400).json({ error: "isActive must be a boolean value" });
+      }
+      const franchise = await storage.updateFranchiseStatus(id, isActive);
+      if (!franchise) {
+        return res.status(404).json({ error: "Franchise not found" });
+      }
+      res.json(franchise);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update franchise status" });
     }
   });
   app2.post("/api/franchises", async (req, res) => {
@@ -1079,25 +856,32 @@ async function registerRoutes(app2) {
       res.status(500).json({ error: "Failed to fetch business" });
     }
   });
-  app2.post("/api/businesses", async (req, res) => {
+  app2.post("/api/businesses", requireAuth, async (req, res) => {
     try {
+      const userId = req.user.id;
       const validatedData = insertBusinessSchema.parse(req.body);
-      const business = await storage.createBusiness(validatedData);
+      const businessData = {
+        ...validatedData,
+        userId
+      };
+      const business = await storage.createBusiness(businessData);
       res.status(201).json(business);
     } catch (error) {
       console.error("Business creation error:", error);
       res.status(400).json({ error: "Invalid business data" });
     }
   });
-  app2.get("/api/admin/businesses", requireAdmin, async (req, res) => {
+  app2.get("/api/admin/businesses", async (req, res) => {
     try {
       const businesses2 = await storage.getAllBusinessesForAdmin();
+      console.log(`\u{1F4CA} ADMIN: Retrieved ${businesses2.length} businesses`);
       res.json(businesses2);
     } catch (error) {
+      console.error("Error fetching businesses for admin:", error);
       res.status(500).json({ error: "Failed to fetch businesses" });
     }
   });
-  app2.patch("/api/businesses/:id/status", requireAdmin, async (req, res) => {
+  app2.patch("/api/businesses/:id/status", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const { status, isActive } = req.body;
@@ -1121,25 +905,32 @@ async function registerRoutes(app2) {
       res.status(500).json({ error: "Failed to fetch advertisements" });
     }
   });
-  app2.post("/api/advertisements", async (req, res) => {
+  app2.post("/api/advertisements", requireAuth, async (req, res) => {
     try {
+      const userId = req.user.id;
       const validatedData = insertAdvertisementSchema.parse(req.body);
-      const advertisement = await storage.createAdvertisement(validatedData);
+      const advertisementData = {
+        ...validatedData,
+        userId
+      };
+      const advertisement = await storage.createAdvertisement(advertisementData);
       res.status(201).json(advertisement);
     } catch (error) {
       console.error("Advertisement creation error:", error);
       res.status(400).json({ error: "Invalid advertisement data" });
     }
   });
-  app2.get("/api/admin/advertisements", requireAdmin, async (req, res) => {
+  app2.get("/api/admin/advertisements", async (req, res) => {
     try {
       const ads = await storage.getAllAdvertisementsForAdmin();
+      console.log(`\u{1F4CA} ADMIN: Retrieved ${ads.length} advertisements`);
       res.json(ads);
     } catch (error) {
+      console.error("Error fetching advertisements for admin:", error);
       res.status(500).json({ error: "Failed to fetch advertisements" });
     }
   });
-  app2.patch("/api/advertisements/:id/status", requireAdmin, async (req, res) => {
+  app2.patch("/api/advertisements/:id/status", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const { status, isActive } = req.body;
@@ -1158,8 +949,10 @@ async function registerRoutes(app2) {
   app2.get("/api/inquiries", async (req, res) => {
     try {
       const inquiries2 = await storage.getAllInquiries();
+      console.log(`\u{1F4CA} ADMIN: Retrieved ${inquiries2.length} inquiries`);
       res.json(inquiries2);
     } catch (error) {
+      console.error("Error fetching inquiries for admin:", error);
       res.status(500).json({ error: "Failed to fetch inquiries" });
     }
   });
@@ -1184,7 +977,7 @@ async function registerRoutes(app2) {
       res.status(500).json({ error: "Failed to fetch inquiry" });
     }
   });
-  app2.patch("/api/inquiries/:id/status", requireAdmin, async (req, res) => {
+  app2.patch("/api/inquiries/:id/status", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const { status } = req.body;

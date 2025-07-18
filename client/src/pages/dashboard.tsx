@@ -155,20 +155,17 @@ export default function Dashboard() {
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Badge variant={business.status === 'active' ? 'default' : 'secondary'}>
-                            {business.status}
-                          </Badge>
-                          <div className="flex gap-1">
-                            <Button variant="ghost" size="sm">
-                              <Eye className="w-4 h-4" />
-                            </Button>
-                            <Button variant="ghost" size="sm">
-                              <Edit className="w-4 h-4" />
-                            </Button>
-                            <Button variant="ghost" size="sm" className="text-red-500">
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
+                          <div className="flex flex-col items-end gap-1">
+                            <Badge variant={business.isActive ? 'default' : 'secondary'}>
+                              {business.isActive ? 'Active' : 'Inactive'}
+                            </Badge>
+                            <Badge variant={business.status === 'active' ? 'default' : business.status === 'pending' ? 'destructive' : 'secondary'} className="text-xs">
+                              {business.status}
+                            </Badge>
                           </div>
+                          <Button variant="ghost" size="sm" title="View Details">
+                            <Eye className="w-4 h-4" />
+                          </Button>
                         </div>
                       </div>
                     </CardContent>
@@ -222,20 +219,17 @@ export default function Dashboard() {
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Badge variant={ad.status === 'active' ? 'default' : 'secondary'}>
-                            {ad.status}
-                          </Badge>
-                          <div className="flex gap-1">
-                            <Button variant="ghost" size="sm">
-                              <Eye className="w-4 h-4" />
-                            </Button>
-                            <Button variant="ghost" size="sm">
-                              <Edit className="w-4 h-4" />
-                            </Button>
-                            <Button variant="ghost" size="sm" className="text-red-500">
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
+                          <div className="flex flex-col items-end gap-1">
+                            <Badge variant={ad.isActive ? 'default' : 'secondary'}>
+                              {ad.isActive ? 'Active' : 'Inactive'}
+                            </Badge>
+                            <Badge variant={ad.status === 'active' ? 'default' : ad.status === 'pending' ? 'destructive' : 'secondary'} className="text-xs">
+                              {ad.status}
+                            </Badge>
                           </div>
+                          <Button variant="ghost" size="sm" title="View Details">
+                            <Eye className="w-4 h-4" />
+                          </Button>
                         </div>
                       </div>
                     </CardContent>

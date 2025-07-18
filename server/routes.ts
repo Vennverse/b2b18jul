@@ -261,6 +261,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin endpoint to get all franchises including inactive ones
+  app.get("/api/admin/franchises", async (req, res) => {
+    try {
+      const franchises = await storage.getAllFranchisesForAdmin();
+      console.log(`📊 ADMIN: Retrieved ${franchises.length} franchises`);
+      res.json(franchises);
+    } catch (error) {
+      console.error("Error fetching franchises for admin:", error);
+      res.status(500).json({ error: "Failed to fetch franchises" });
+    }
+  });
+
+  // Admin endpoint to update franchise status
+  app.patch("/api/franchises/:id/status", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { isActive } = req.body;
+      
+      if (typeof isActive !== 'boolean') {
+        return res.status(400).json({ error: "isActive must be a boolean value" });
+      }
+      
+      const franchise = await storage.updateFranchiseStatus(id, isActive);
+      if (!franchise) {
+        return res.status(404).json({ error: "Franchise not found" });
+      }
+      res.json(franchise);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update franchise status" });
+    }
+  });
+
   app.post("/api/franchises", async (req, res) => {
     try {
       const validatedData = insertFranchiseSchema.parse(req.body);

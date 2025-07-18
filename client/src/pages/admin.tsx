@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import type { Inquiry, Advertisement, Business } from "@shared/schema";
+import type { Inquiry, Advertisement, Business, Franchise } from "@shared/schema";
 
 export default function Admin() {
   const { toast } = useToast();
@@ -30,6 +30,10 @@ export default function Admin() {
 
   const { data: businesses = [], isLoading: businessesLoading, refetch: refetchBusinesses } = useQuery<Business[]>({
     queryKey: ['/api/admin/businesses'],
+  });
+
+  const { data: franchises = [], isLoading: franchisesLoading, refetch: refetchFranchises } = useQuery<Franchise[]>({
+    queryKey: ['/api/admin/franchises'],
   });
 
   const updateStatusMutation = useMutation({
@@ -105,6 +109,32 @@ export default function Admin() {
       toast({
         title: "Error",
         description: "Failed to update business status.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateFranchiseStatusMutation = useMutation({
+    mutationFn: async ({ id, isActive }: { id: number; isActive: boolean }) => {
+      const response = await fetch(`/api/franchises/${id}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ isActive }),
+        headers: { 'Content-Type': 'application/json' }
+      });
+      if (!response.ok) throw new Error('Failed to update franchise status');
+      return response.json();
+    },
+    onSuccess: () => {
+      refetchFranchises();
+      toast({
+        title: "Franchise Updated",
+        description: "Franchise status has been updated successfully.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update franchise status.",
         variant: "destructive",
       });
     },
@@ -221,7 +251,7 @@ export default function Admin() {
         </Card>
 
         {/* Statistics */}
-        <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-8 gap-4 mb-6">
           <Card>
             <CardContent className="p-4">
               <div className="text-2xl font-bold text-[hsl(var(--b2b-blue))]">{inquiries.length}</div>
@@ -269,14 +299,31 @@ export default function Admin() {
               <div className="text-sm text-gray-600">Active Businesses</div>
             </CardContent>
           </Card>
+
+          <Card>
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold text-indigo-600">{franchises.length}</div>
+              <div className="text-sm text-gray-600">Total Franchises</div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold text-cyan-600">
+                {franchises.filter(f => f.isActive).length}
+              </div>
+              <div className="text-sm text-gray-600">Active Franchises</div>
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Tabs for Inquiries, Advertisements, and Businesses */}
+        {/* Tabs for Inquiries, Advertisements, Businesses, and Franchises */}
         <Tabs defaultValue="inquiries" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="inquiries">Business Inquiries</TabsTrigger>
             <TabsTrigger value="advertisements">Submitted Ads</TabsTrigger>
             <TabsTrigger value="businesses">Business Listings</TabsTrigger>
+            <TabsTrigger value="franchises">Franchise Opportunities</TabsTrigger>
           </TabsList>
 
           <TabsContent value="inquiries" className="space-y-4">
@@ -710,6 +757,121 @@ export default function Admin() {
                         >
                           Set Pending
                         </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </TabsContent>
+
+          <TabsContent value="franchises" className="space-y-4">
+            {franchisesLoading ? (
+              <Card>
+                <CardContent className="p-8 text-center">
+                  <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4" />
+                  <p className="text-gray-600">Loading franchise opportunities...</p>
+                </CardContent>
+              </Card>
+            ) : franchises.length === 0 ? (
+              <Card>
+                <CardContent className="p-8 text-center">
+                  <MessageSquare className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-600 mb-2">No franchise opportunities found</h3>
+                  <p className="text-gray-500">No franchise opportunities have been added yet.</p>
+                </CardContent>
+              </Card>
+            ) : (
+              franchises.map((franchise) => (
+                <Card key={franchise.id} className="hover:shadow-md transition-shadow">
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-1">
+                        <CardTitle className="text-lg font-semibold text-gray-800">
+                          {franchise.name}
+                        </CardTitle>
+                        <div className="flex items-center gap-4 text-sm text-gray-600">
+                          <span className="flex items-center gap-1">
+                            <User className="w-4 h-4" />
+                            {franchise.contactEmail || 'No contact email'}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Calendar className="w-4 h-4" />
+                            {franchise.createdAt ? new Date(franchise.createdAt as string | Date).toLocaleDateString() : 'N/A'}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            💰 {franchise.investmentRange || 'Investment range not specified'}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end gap-2">
+                        <Badge 
+                          variant={franchise.isActive ? 'default' : 'secondary'}
+                          className={franchise.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}
+                        >
+                          {franchise.isActive ? 'Active' : 'Inactive'}
+                        </Badge>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="bg-gray-50 p-4 rounded-lg mb-4">
+                      <p className="text-gray-700 mb-2">
+                        <strong>Category:</strong> {franchise.category}
+                      </p>
+                      <p className="text-gray-700 mb-2">
+                        <strong>Location:</strong> {franchise.country}{franchise.state ? `, ${franchise.state}` : ''}
+                      </p>
+                      <p className="text-gray-700 whitespace-pre-wrap">{franchise.description}</p>
+                    </div>
+                    
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        {franchise.imageUrl && (
+                          <Button size="sm" variant="outline" className="text-xs" asChild>
+                            <a href={franchise.imageUrl} target="_blank" rel="noopener noreferrer">
+                              <Image className="w-3 h-3 mr-1" />
+                              View Image
+                            </a>
+                          </Button>
+                        )}
+                        <Button size="sm" variant="outline" className="text-xs" asChild>
+                          <a href={`/franchise/${franchise.id}`} target="_blank" rel="noopener noreferrer">
+                            <ExternalLink className="w-3 h-3 mr-1" />
+                            View Page
+                          </a>
+                        </Button>
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        {!franchise.isActive && (
+                          <Button 
+                            size="sm" 
+                            className="text-xs bg-green-600 hover:bg-green-700"
+                            onClick={() => updateFranchiseStatusMutation.mutate({ 
+                              id: franchise.id, 
+                              isActive: true 
+                            })}
+                            disabled={updateFranchiseStatusMutation.isPending}
+                          >
+                            Activate
+                          </Button>
+                        )}
+                        
+                        {franchise.isActive && (
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            className="text-xs border-red-300 text-red-600 hover:bg-red-50"
+                            onClick={() => updateFranchiseStatusMutation.mutate({ 
+                              id: franchise.id, 
+                              isActive: false 
+                            })}
+                            disabled={updateFranchiseStatusMutation.isPending}
+                          >
+                            Deactivate
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </CardContent>

@@ -26,6 +26,7 @@ export interface IStorage {
   getUserAdvertisements(userId: number): Promise<Advertisement[]>;
   
   getAllFranchises(): Promise<Franchise[]>;
+  getAllFranchisesForAdmin(): Promise<Franchise[]>;
   getFranchiseById(id: number): Promise<Franchise | undefined>;
   searchFranchises(filters: {
     category?: string;
@@ -34,6 +35,7 @@ export interface IStorage {
     priceRange?: string;
   }): Promise<Franchise[]>;
   createFranchise(franchise: InsertFranchise): Promise<Franchise>;
+  updateFranchiseStatus(id: number, isActive: boolean): Promise<Franchise | undefined>;
   
   getAllBusinesses(): Promise<Business[]>;
   getAllBusinessesForAdmin(): Promise<Business[]>;
@@ -153,6 +155,19 @@ export class DatabaseStorage implements IStorage {
       .values(insertFranchise)
       .returning();
     return franchise;
+  }
+
+  async getAllFranchisesForAdmin(): Promise<Franchise[]> {
+    return await db.select().from(franchises);
+  }
+
+  async updateFranchiseStatus(id: number, isActive: boolean): Promise<Franchise | undefined> {
+    const [franchise] = await db
+      .update(franchises)
+      .set({ isActive })
+      .where(eq(franchises.id, id))
+      .returning();
+    return franchise || undefined;
   }
 
   async getAllBusinesses(): Promise<Business[]> {
