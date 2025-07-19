@@ -10,7 +10,7 @@ neonConfig.fetchConnectionCache = true;
 neonConfig.webSocketConstructor = ws;
 
 const pool = new Pool({ 
-  connectionString: process.env.DATABASE_URL,
+  connectionString: 'postgresql://neondb_owner:npg_0CpHBlm2zqaF@ep-nameless-feather-a4dga2p7-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require',
   max: 1 // Keep connections minimal for serverless
 });
 
