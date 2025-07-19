@@ -2,9 +2,11 @@ import { Handler } from '@netlify/functions';
 import { Pool, neonConfig } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-serverless';
 import { inquiries } from '../../shared/schema';
+import ws from 'ws';
 
 // Configure Neon for serverless
 neonConfig.fetchConnectionCache = true;
+neonConfig.webSocketConstructor = ws;
 
 const pool = new Pool({ 
   connectionString: process.env.DATABASE_URL,

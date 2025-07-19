@@ -3,9 +3,11 @@ import { Pool, neonConfig } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-serverless';
 import { inquiries, advertisements, businesses } from '../../shared/schema';
 import { eq } from 'drizzle-orm';
+import ws from 'ws';
 
 // Configure Neon for serverless
 neonConfig.fetchConnectionCache = true;
+neonConfig.webSocketConstructor = ws;
 
 const pool = new Pool({ 
   connectionString: process.env.DATABASE_URL,

@@ -6,9 +6,11 @@ import { eq } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { randomBytes } from 'crypto';
+import ws from 'ws';
 
 // Configure Neon for serverless
 neonConfig.fetchConnectionCache = true;
+neonConfig.webSocketConstructor = ws;
 
 const pool = new Pool({ 
   connectionString: process.env.DATABASE_URL,
