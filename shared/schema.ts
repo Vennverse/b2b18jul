@@ -4,23 +4,11 @@ import { z } from "zod";
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
-  email: text("email").notNull().unique(),
+  username: text("username").notNull().unique(),
   password: text("password").notNull(),
-  firstName: text("first_name"),
-  lastName: text("last_name"),
-  role: text("role").notNull().default("user"), // "user" or "admin"
-  isActive: boolean("is_active").default(true),
-  createdAt: timestamp("created_at").defaultNow(),
 });
 
-export const passwordResetTokens = pgTable("password_reset_tokens", {
-  id: serial("id").primaryKey(),
-  email: text("email").notNull(),
-  token: text("token").notNull().unique(),
-  expiresAt: timestamp("expires_at").notNull(),
-  used: boolean("used").default(false),
-  createdAt: timestamp("created_at").defaultNow(),
-});
+// Password reset tokens table not in Neon database
 
 export const franchises = pgTable("franchises", {
   id: serial("id").primaryKey(),
@@ -40,7 +28,6 @@ export const franchises = pgTable("franchises", {
 
 export const businesses = pgTable("businesses", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").references(() => users.id),
   name: text("name").notNull(),
   description: text("description"),
   category: text("category").notNull(),
@@ -63,7 +50,6 @@ export const businesses = pgTable("businesses", {
 
 export const advertisements = pgTable("advertisements", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").references(() => users.id),
   title: text("title").notNull(),
   description: text("description"),
   imageUrl: text("image_url").notNull(),
@@ -92,53 +78,24 @@ export const inquiries = pgTable("inquiries", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-// Session storage table for authentication
-export const sessions = pgTable(
-  "sessions",
-  {
-    sid: varchar("sid").primaryKey(),
-    sess: jsonb("sess").notNull(),
-    expire: timestamp("expire").notNull(),
-  },
-  (table) => [index("IDX_session_expire").on(table.expire)],
-);
+// Remove session table as it's not in the Neon database
 
 export const insertUserSchema = createInsertSchema(users).pick({
-  email: true,
+  username: true,
   password: true,
-  firstName: true,
-  lastName: true,
 });
 
 export const loginSchema = z.object({
-  email: z.string().email(),
+  username: z.string().min(1),
   password: z.string().min(6),
 });
 
 export const registerSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(6),
-  firstName: z.string().min(1),
-  lastName: z.string().min(1),
-});
-
-export const forgotPasswordSchema = z.object({
-  email: z.string().email(),
-});
-
-export const resetPasswordSchema = z.object({
-  token: z.string(),
+  username: z.string().min(1),
   password: z.string().min(6),
 });
 
-export const insertPasswordResetTokenSchema = createInsertSchema(passwordResetTokens).pick({
-  email: true,
-  token: true,
-  expiresAt: true,
-});
-
-export type PasswordResetToken = typeof passwordResetTokens.$inferSelect;
-export type InsertPasswordResetToken = typeof passwordResetTokens.$inferInsert;
+// Remove password reset schemas as not supported by current database
 
 export const insertFranchiseSchema = createInsertSchema(franchises).omit({
   id: true,

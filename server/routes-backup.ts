@@ -4,7 +4,8 @@ import { storage } from "./storage";
 import { insertFranchiseSchema, insertBusinessSchema, insertInquirySchema, insertAdvertisementSchema, loginSchema, registerSchema } from "@shared/schema";
 import crypto from "crypto";
 import { getSessionConfig, hashPassword, verifyPassword, generateToken, requireAuth, optionalAuth, requireAdmin } from "./auth";
-// Email functionality removed for simplified schema
+import { sendEmail, createPasswordResetEmail } from "./emailService";
+import { MailService } from '@sendgrid/mail';
 
 // Initialize Stripe
 async function initializeStripe() {
@@ -104,6 +105,118 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const user = (req as any).user;
     const { password, ...userWithoutPassword } = user;
     res.json(userWithoutPassword);
+  });
+
+  // Forgot password endpoint
+  app.post("/api/auth/forgot-password", async (req, res) => {
+    try {
+      const { email } = forgotPasswordSchema.parse(req.body);
+      
+      // Check if user exists
+      const user = await storage.getUserByEmail(email);
+      if (!user) {
+        return res.json({ message: "If an account with that email exists, we've sent a password reset link." });
+      }
+
+      // Generate reset token
+      const resetToken = crypto.randomBytes(32).toString('hex');
+      const expiresAt = new Date(Date.now() + 3600000); // 1 hour from now
+
+      // Store reset token
+      await storage.createPasswordResetToken(email, resetToken, expiresAt);
+
+      // Create and send password reset email
+      const emailOptions = createPasswordResetEmail(email, resetToken);
+      const emailSent = await sendEmail(emailOptions);
+
+      if (emailSent) {
+        res.json({ 
+          message: "Password reset email sent successfully! Check your inbox for the reset link.",
+          success: true
+        });
+      } else {
+        // Email failed but provide direct reset link for development/testing
+        res.json({ 
+          message: "Password reset link generated. Since email delivery is not configured, you can reset your password directly using the link below:",
+          resetLink: `http://localhost:5000/reset-password?token=${resetToken}`,
+          success: true,
+          token: resetToken,
+          instructions: "Click the reset link above or copy it to your browser to reset your password."
+        });
+      }
+
+    } catch (error) {
+      console.error("Forgot password error:", error);
+      res.status(400).json({ error: "Failed to process request" });
+    }
+  });
+
+  // Reset password endpoint
+  app.post("/api/auth/reset-password", async (req, res) => {
+    try {
+      const { token, password } = resetPasswordSchema.parse(req.body);
+      
+      // Get reset token
+      const resetToken = await storage.getPasswordResetToken(token);
+      if (!resetToken || resetToken.used) {
+        return res.status(400).json({ error: "Invalid or expired reset token" });
+      }
+
+      // Check if token has expired
+      if (new Date() > resetToken.expiresAt) {
+        return res.status(400).json({ error: "Reset token has expired" });
+      }
+
+      // Hash new password and update user
+      const hashedPassword = await hashPassword(password);
+      const updatedUser = await storage.updateUserPassword(resetToken.email, hashedPassword);
+      
+      if (!updatedUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Mark token as used
+      await storage.markPasswordResetTokenUsed(token);
+
+      res.json({ message: "Password reset successful" });
+
+    } catch (error) {
+      console.error("Reset password error:", error);
+      res.status(400).json({ error: "Failed to reset password" });
+    }
+  });
+
+  // User dashboard routes
+  app.get("/api/user/businesses", requireAuth, async (req, res) => {
+    try {
+      const userId = (req as any).user.id;
+      const businesses = await storage.getUserBusinesses(userId);
+      res.json(businesses);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch user businesses" });
+    }
+  });
+
+  app.get("/api/user/advertisements", requireAuth, async (req, res) => {
+    try {
+      const userId = (req as any).user.id;
+      const advertisements = await storage.getUserAdvertisements(userId);
+      res.json(advertisements);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch user advertisements" });
+    }
+  });
+
+  // Note: Franchises don't have userId field, so users can view all public franchises
+  app.get("/api/user/franchises", requireAuth, async (req, res) => {
+    try {
+      // Since franchises don't belong to specific users, return all active franchises
+      // This is the same as the public franchise endpoint but requires authentication
+      const franchises = await storage.getAllFranchises();
+      res.json(franchises);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch franchises" });
+    }
   });
 
   // Franchise routes

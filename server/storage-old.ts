@@ -15,6 +15,7 @@ export interface IStorage {
   createUser(user: InsertUser): Promise<User>;
   
   getAllFranchises(): Promise<Franchise[]>;
+  getAllFranchisesForAdmin(): Promise<Franchise[]>;
   getFranchiseById(id: number): Promise<Franchise | undefined>;
   searchFranchises(filters: {
     category?: string;
@@ -23,8 +24,10 @@ export interface IStorage {
     priceRange?: string;
   }): Promise<Franchise[]>;
   createFranchise(franchise: InsertFranchise): Promise<Franchise>;
+  updateFranchiseStatus(id: number, isActive: boolean): Promise<Franchise | undefined>;
   
   getAllBusinesses(): Promise<Business[]>;
+  getAllBusinessesForAdmin(): Promise<Business[]>;
   getBusinessById(id: number): Promise<Business | undefined>;
   searchBusinesses(filters: {
     category?: string;
@@ -33,13 +36,36 @@ export interface IStorage {
     maxPrice?: number;
   }): Promise<Business[]>;
   createBusiness(business: InsertBusiness): Promise<Business>;
+  updateBusinessStatus(id: number, status: string, isActive?: boolean): Promise<Business | undefined>;
   
   getAllAdvertisements(): Promise<Advertisement[]>;
+  getAllAdvertisementsForAdmin(): Promise<Advertisement[]>;
   createAdvertisement(ad: InsertAdvertisement): Promise<Advertisement>;
+  updateAdvertisementStatus(id: number, status: string, isActive?: boolean): Promise<Advertisement | undefined>;
   
   getAllInquiries(): Promise<Inquiry[]>;
   createInquiry(inquiry: InsertInquiry): Promise<Inquiry>;
   getInquiryById(id: number): Promise<Inquiry | undefined>;
+  updateInquiryStatus(id: number, status: string): Promise<Inquiry | undefined>;
+}
+
+function parsePriceRange(priceRange: string): { min: number; max: number } | null {
+  // Handle price ranges like "$10K-$50K", "$100K-$250K", "$1M-$5M"
+  const [minStr, maxStr] = priceRange.split('-');
+  if (!minStr || !maxStr) return null;
+  
+  const parseAmount = (str: string): number => {
+    const numStr = str.replace(/[^0-9]/g, '');
+    const num = parseInt(numStr);
+    if (str.includes('K')) return num * 1000;
+    if (str.includes('M')) return num * 1000000;
+    return num;
+  };
+  
+  return {
+    min: parseAmount(minStr),
+    max: parseAmount(maxStr)
+  };
 }
 
 export class DatabaseStorage implements IStorage {
@@ -76,12 +102,7 @@ export class DatabaseStorage implements IStorage {
     state?: string;
     priceRange?: string;
   }): Promise<Franchise[]> {
-    let query = db.select().from(franchises).where(eq(franchises.isActive, true));
-    
-    // Note: For a production app, you would add proper WHERE clauses for filtering
-    // This is a simplified implementation
-    const allFranchises = await query;
-    
+    const allFranchises = await this.getAllFranchises();
     return allFranchises.filter(franchise => {
       if (filters.category && filters.category !== "All Business Categories" && franchise.category !== filters.category) {
         return false;
@@ -92,8 +113,18 @@ export class DatabaseStorage implements IStorage {
       if (filters.state && filters.state !== "Any State" && franchise.state !== filters.state) {
         return false;
       }
-      if (filters.priceRange && filters.priceRange !== "Price Range" && franchise.priceRange !== filters.priceRange) {
-        return false;
+      if (filters.priceRange && filters.priceRange !== "Price Range") {
+        const selectedRange = parsePriceRange(filters.priceRange);
+        if (selectedRange && franchise.investmentMin && franchise.investmentMax) {
+          // Check if franchise investment range overlaps with selected range
+          const franchiseMin = franchise.investmentMin;
+          const franchiseMax = franchise.investmentMax;
+          
+          // Overlaps if: franchise_min <= selected_max AND franchise_max >= selected_min
+          if (!(franchiseMin <= selectedRange.max && franchiseMax >= selectedRange.min)) {
+            return false;
+          }
+        }
       }
       return true;
     });
@@ -107,8 +138,25 @@ export class DatabaseStorage implements IStorage {
     return franchise;
   }
 
+  async getAllFranchisesForAdmin(): Promise<Franchise[]> {
+    return await db.select().from(franchises);
+  }
+
+  async updateFranchiseStatus(id: number, isActive: boolean): Promise<Franchise | undefined> {
+    const [franchise] = await db
+      .update(franchises)
+      .set({ isActive })
+      .where(eq(franchises.id, id))
+      .returning();
+    return franchise || undefined;
+  }
+
   async getAllBusinesses(): Promise<Business[]> {
     return await db.select().from(businesses).where(eq(businesses.isActive, true));
+  }
+
+  async getAllBusinessesForAdmin(): Promise<Business[]> {
+    return await db.select().from(businesses);
   }
 
   async getBusinessById(id: number): Promise<Business | undefined> {
@@ -122,12 +170,7 @@ export class DatabaseStorage implements IStorage {
     state?: string;
     maxPrice?: number;
   }): Promise<Business[]> {
-    let query = db.select().from(businesses).where(eq(businesses.isActive, true));
-    
-    // Note: For a production app, you would add proper WHERE clauses for filtering
-    // This is a simplified implementation
-    const allBusinesses = await query;
-    
+    const allBusinesses = await this.getAllBusinesses();
     return allBusinesses.filter(business => {
       if (filters.category && filters.category !== "All Business Categories" && business.category !== filters.category) {
         return false;
@@ -148,21 +191,63 @@ export class DatabaseStorage implements IStorage {
   async createBusiness(insertBusiness: InsertBusiness): Promise<Business> {
     const [business] = await db
       .insert(businesses)
-      .values(insertBusiness)
+      .values({
+        ...insertBusiness,
+        status: "pending",
+        paymentStatus: "unpaid",
+        isActive: false
+      })
       .returning();
     return business;
+  }
+
+  async updateBusinessStatus(id: number, status: string, isActive?: boolean): Promise<Business | undefined> {
+    const updateData: any = { status };
+    if (isActive !== undefined) {
+      updateData.isActive = isActive;
+    }
+    
+    const [business] = await db
+      .update(businesses)
+      .set(updateData)
+      .where(eq(businesses.id, id))
+      .returning();
+    return business || undefined;
   }
 
   async getAllAdvertisements(): Promise<Advertisement[]> {
     return await db.select().from(advertisements).where(eq(advertisements.isActive, true));
   }
 
+  async getAllAdvertisementsForAdmin(): Promise<Advertisement[]> {
+    return await db.select().from(advertisements);
+  }
+
   async createAdvertisement(insertAd: InsertAdvertisement): Promise<Advertisement> {
     const [ad] = await db
       .insert(advertisements)
-      .values(insertAd)
+      .values({
+        ...insertAd,
+        status: "pending",
+        paymentStatus: "unpaid",
+        isActive: false
+      })
       .returning();
     return ad;
+  }
+
+  async updateAdvertisementStatus(id: number, status: string, isActive?: boolean): Promise<Advertisement | undefined> {
+    const updateData: any = { status };
+    if (isActive !== undefined) {
+      updateData.isActive = isActive;
+    }
+    
+    const [ad] = await db
+      .update(advertisements)
+      .set(updateData)
+      .where(eq(advertisements.id, id))
+      .returning();
+    return ad || undefined;
   }
 
   async getAllInquiries(): Promise<Inquiry[]> {
@@ -181,6 +266,76 @@ export class DatabaseStorage implements IStorage {
     const [inquiry] = await db.select().from(inquiries).where(eq(inquiries.id, id));
     return inquiry || undefined;
   }
+
+  async updateInquiryStatus(id: number, status: string): Promise<Inquiry | undefined> {
+    const [inquiry] = await db
+      .update(inquiries)
+      .set({ status })
+      .where(eq(inquiries.id, id))
+      .returning();
+    return inquiry || undefined;
+  }
+
+  async updateUserPassword(email: string, hashedPassword: string): Promise<User | undefined> {
+    const [user] = await db
+      .update(users)
+      .set({ password: hashedPassword })
+      .where(eq(users.email, email))
+      .returning();
+    return user;
+  }
+
+  async createPasswordResetToken(email: string, token: string, expiresAt: Date): Promise<void> {
+    await db.insert(passwordResetTokens).values({
+      email,
+      token,
+      expiresAt,
+    });
+  }
+
+  async getPasswordResetToken(token: string): Promise<PasswordResetToken | undefined> {
+    const [resetToken] = await db
+      .select()
+      .from(passwordResetTokens)
+      .where(eq(passwordResetTokens.token, token));
+    return resetToken;
+  }
+
+  async markPasswordResetTokenUsed(token: string): Promise<void> {
+    await db
+      .update(passwordResetTokens)
+      .set({ used: true })
+      .where(eq(passwordResetTokens.token, token));
+  }
+
+  async getAdvertisementById(id: number): Promise<Advertisement | undefined> {
+    const [advertisement] = await db.select().from(advertisements).where(eq(advertisements.id, id));
+    return advertisement || undefined;
+  }
+
+  async updateBusiness(id: number, data: Partial<Business>): Promise<Business | undefined> {
+    // Filter out fields that customers shouldn't be able to change
+    const { status, isActive, paymentStatus, userId, createdAt, ...updateData } = data;
+    
+    const business = await db.update(businesses)
+      .set(updateData)
+      .where(eq(businesses.id, id))
+      .returning();
+    
+    return business[0] || undefined;
+  }
+
+  async updateAdvertisement(id: number, data: Partial<Advertisement>): Promise<Advertisement | undefined> {
+    // Filter out fields that customers shouldn't be able to change
+    const { status, isActive, paymentStatus, userId, createdAt, ...updateData } = data;
+    
+    const advertisement = await db.update(advertisements)
+      .set(updateData)
+      .where(eq(advertisements.id, id))
+      .returning();
+    
+    return advertisement[0] || undefined;
+  }
 }
 
 export class MemStorage implements IStorage {
@@ -189,11 +344,13 @@ export class MemStorage implements IStorage {
   private businesses: Map<number, Business>;
   private advertisements: Map<number, Advertisement>;
   private inquiries: Map<number, Inquiry>;
+  private passwordResetTokens: Map<string, PasswordResetToken>;
   private currentUserId: number;
   private currentFranchiseId: number;
   private currentBusinessId: number;
   private currentAdId: number;
   private currentInquiryId: number;
+  private currentTokenId: number;
 
   constructor() {
     this.users = new Map();
@@ -201,18 +358,18 @@ export class MemStorage implements IStorage {
     this.businesses = new Map();
     this.advertisements = new Map();
     this.inquiries = new Map();
+    this.passwordResetTokens = new Map();
     this.currentUserId = 1;
     this.currentFranchiseId = 1;
     this.currentBusinessId = 1;
     this.currentAdId = 1;
     this.currentInquiryId = 1;
+    this.currentTokenId = 1;
     
-    // Initialize with sample data
     this.initializeSampleData();
   }
 
   private initializeSampleData() {
-    // Sample franchises
     const sampleFranchises: InsertFranchise[] = [
       {
         name: "MILKSTER",
@@ -220,8 +377,9 @@ export class MemStorage implements IStorage {
         category: "Coffee",
         country: "USA",
         state: "California",
-        priceRange: "$50K-$100K",
+        investmentRange: "$50K-$100K",
         imageUrl: "https://images.unsplash.com/photo-1554118811-1e0d58224f24?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=250",
+        contactEmail: "info@milkster.com",
         investmentMin: 50000,
         investmentMax: 100000,
         isActive: true,
@@ -232,10 +390,11 @@ export class MemStorage implements IStorage {
         category: "Health, Beauty & Nutrition",
         country: "USA",
         state: "Texas",
-        priceRange: "$250K-$500K",
+        investmentRange: "$250K-$500K",
         imageUrl: "https://images.unsplash.com/photo-1559757148-5c350d0d3c56?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=250",
-        investmentMin: 1421257,
-        investmentMax: 1497104,
+        contactEmail: "franchise@brightstarcare.com",
+        investmentMin: 250000,
+        investmentMax: 500000,
         isActive: true,
       },
       {
@@ -244,8 +403,9 @@ export class MemStorage implements IStorage {
         category: "Moving Services",
         country: "USA",
         state: "Florida",
-        priceRange: "$100K-$250K",
+        investmentRange: "$100K-$250K",
         imageUrl: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=250",
+        contactEmail: "franchise@collegehunks.com",
         investmentMin: 100000,
         investmentMax: 250000,
         isActive: true,
@@ -253,23 +413,25 @@ export class MemStorage implements IStorage {
       {
         name: "Home Team Inspection Service",
         description: "Professional home inspection services",
-        category: "Real Estate",
+        category: "Home & Garden",
         country: "USA",
-        state: "New York",
-        priceRange: "$50K-$100K",
+        state: "Georgia",
+        investmentRange: "$50K-$100K",
         imageUrl: "https://images.unsplash.com/photo-1560518883-ce09059eeffa?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=250",
+        contactEmail: "franchise@hometeam.com",
         investmentMin: 50000,
         investmentMax: 100000,
         isActive: true,
       },
       {
         name: "Mr. Handyman",
-        description: "Home repair and maintenance services",
-        category: "Maintenance",
+        description: "Professional handyman and repair services",
+        category: "Home & Garden",
         country: "USA",
-        state: "Illinois",
-        priceRange: "$100K-$250K",
-        imageUrl: "https://images.unsplash.com/photo-1581244277943-fe4a9c777189?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=250",
+        state: "Ohio",
+        investmentRange: "$100K-$250K",
+        imageUrl: "https://images.unsplash.com/photo-1581578731548-c64695cc6952?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=250",
+        contactEmail: "franchise@mrhandyman.com",
         investmentMin: 100000,
         investmentMax: 250000,
         isActive: true,
@@ -277,137 +439,75 @@ export class MemStorage implements IStorage {
       {
         name: "Mr. Rooter Plumbing",
         description: "Professional plumbing services",
-        category: "Repair & Restoration",
+        category: "Home & Garden",
         country: "USA",
-        state: "Ohio",
-        priceRange: "$100K-$250K",
+        state: "Michigan",
+        investmentRange: "$250K-$500K",
         imageUrl: "https://images.unsplash.com/photo-1607472586893-edb57bdc0e39?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=250",
-        investmentMin: 100000,
-        investmentMax: 250000,
-        isActive: true,
-      },
-      {
-        name: "My Salon Suite",
-        description: "Upscale salon suites for beauty professionals",
-        category: "Health, Beauty & Nutrition",
-        country: "USA",
-        state: "Georgia",
-        priceRange: "$250K-$500K",
-        imageUrl: "https://images.unsplash.com/photo-1560066984-138dadb4c035?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=250",
+        contactEmail: "franchise@mrrooter.com",
         investmentMin: 250000,
         investmentMax: 500000,
         isActive: true,
       },
       {
         name: "Sport Clips",
-        description: "Sports-themed hair salon franchise",
-        category: "Hairstyling",
+        description: "Men's hair salon franchise",
+        category: "Health, Beauty & Nutrition",
         country: "USA",
-        state: "Arizona",
-        priceRange: "$250K-$500K",
+        state: "Colorado",
+        investmentRange: "$100K-$250K",
         imageUrl: "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=250",
-        investmentMin: 250000,
-        investmentMax: 500000,
+        contactEmail: "franchise@sportclips.com",
+        investmentMin: 100000,
+        investmentMax: 250000,
         isActive: true,
       },
+      {
+        name: "Supercuts",
+        description: "Affordable hair salon chain",
+        category: "Health, Beauty & Nutrition",
+        country: "USA",
+        state: "Washington",
+        investmentRange: "$100K-$250K",
+        imageUrl: "https://images.unsplash.com/photo-1560066984-138dadb4c035?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=250",
+        contactEmail: "franchise@supercuts.com",
+        investmentMin: 100000,
+        investmentMax: 250000,
+        isActive: true,
+      }
     ];
 
     sampleFranchises.forEach(franchise => {
       this.createFranchise(franchise);
     });
 
-    // Sample businesses
     const sampleBusinesses: InsertBusiness[] = [
       {
-        name: "TechFlow Solutions",
-        description: "Established software development company specializing in web applications and mobile solutions. Strong client base and recurring revenue.",
-        category: "technology",
-        country: "USA",
-        state: "California",
-        price: 850000,
-        contactEmail: "seller@techflow.com",
-        isActive: true,
-      },
-      {
-        name: "Golden Gate Restaurant",
-        description: "Popular family restaurant in prime location. Fully equipped kitchen, established customer base, and excellent reviews.",
-        category: "restaurant",
-        country: "USA",
-        state: "California",
-        price: 450000,
-        contactEmail: "owner@goldengate.com",
-        isActive: true,
-      },
-      {
-        name: "Metro Fitness Center",
-        description: "Well-equipped gym with modern facilities, personal training services, and loyal membership base of 800+ members.",
-        category: "services",
+        name: "Downtown Coffee Shop",
+        description: "Established coffee shop in prime downtown location",
+        category: "Food & Beverage",
         country: "USA",
         state: "New York",
-        price: 320000,
-        contactEmail: "manager@metrofitness.com",
+        price: 125000,
+        imageUrl: "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=250",
+        contactEmail: "seller@downtowncoffee.com",
         isActive: true,
       },
       {
-        name: "Sunshine Medical Clinic",
-        description: "Family practice clinic with established patient base. Modern equipment and prime location in growing community.",
-        category: "healthcare",
+        name: "Tech Consulting Firm",
+        description: "Growing IT consulting business with established client base",
+        category: "Technology",
         country: "USA",
-        state: "Florida",
-        price: 1200000,
-        contactEmail: "admin@sunshinemedical.com",
+        state: "California",
+        price: 350000,
+        imageUrl: "https://images.unsplash.com/photo-1542744173-8e7e53415bb0?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=250",
+        contactEmail: "seller@techconsult.com",
         isActive: true,
-      },
-      {
-        name: "Downtown Auto Repair",
-        description: "Full-service automotive repair shop with loyal customer base. All equipment included, excellent reputation.",
-        category: "services",
-        country: "USA",
-        state: "Texas",
-        price: 275000,
-        contactEmail: "owner@downtownauto.com",
-        isActive: true,
-      },
-      {
-        name: "Fresh Market Grocery",
-        description: "Neighborhood grocery store with steady revenue. Prime location, established supplier relationships, and growth potential.",
-        category: "retail",
-        country: "USA",
-        state: "Colorado",
-        price: 680000,
-        contactEmail: "manager@freshmarket.com",
-        isActive: true,
-      },
+      }
     ];
 
     sampleBusinesses.forEach(business => {
       this.createBusiness(business);
-    });
-
-    // Sample advertisements
-    const sampleAds: InsertAdvertisement[] = [
-      {
-        title: "Business Meeting Solutions",
-        imageUrl: "https://images.unsplash.com/photo-1551434678-e076c223a692?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=250",
-        targetUrl: "#",
-        isActive: true,
-      },
-      {
-        title: "Corporate Partnership Opportunities",
-        imageUrl: "https://images.unsplash.com/photo-1521791136064-7986c2920216?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=250",
-        targetUrl: "#",
-        isActive: true,
-      },
-      {
-        title: "Business Strategy Consulting",
-        imageUrl: "https://images.unsplash.com/photo-1542744173-8e7e53415bb0?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=250",
-        targetUrl: "#",
-        isActive: true,
-      },
-    ];
-
-    sampleAds.forEach(ad => {
-      this.createAdvertisement(ad);
     });
   }
 
@@ -415,15 +515,31 @@ export class MemStorage implements IStorage {
     return this.users.get(id);
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const users = Array.from(this.users.values());
+    return users.find(user => user.email === email);
+  }
+
+  async getUserBusinesses(userId: number): Promise<Business[]> {
+    return Array.from(this.businesses.values()).filter(business => business.userId === userId);
+  }
+
+  async getUserAdvertisements(userId: number): Promise<Advertisement[]> {
+    return Array.from(this.advertisements.values()).filter(ad => ad.userId === userId);
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = this.currentUserId++;
-    const user: User = { ...insertUser, id };
+    const user: User = { 
+      id,
+      email: insertUser.email,
+      password: insertUser.password,
+      firstName: insertUser.firstName || null,
+      lastName: insertUser.lastName || null,
+      role: insertUser.role || "customer",
+      isActive: true,
+      createdAt: new Date()
+    };
     this.users.set(id, user);
     return user;
   }
@@ -443,7 +559,6 @@ export class MemStorage implements IStorage {
     priceRange?: string;
   }): Promise<Franchise[]> {
     const allFranchises = await this.getAllFranchises();
-    
     return allFranchises.filter(franchise => {
       if (filters.category && filters.category !== "All Business Categories" && franchise.category !== filters.category) {
         return false;
@@ -454,8 +569,18 @@ export class MemStorage implements IStorage {
       if (filters.state && filters.state !== "Any State" && franchise.state !== filters.state) {
         return false;
       }
-      if (filters.priceRange && filters.priceRange !== "Price Range" && franchise.priceRange !== filters.priceRange) {
-        return false;
+      if (filters.priceRange && filters.priceRange !== "Price Range") {
+        const selectedRange = parsePriceRange(filters.priceRange);
+        if (selectedRange && franchise.investmentMin && franchise.investmentMax) {
+          // Check if franchise investment range overlaps with selected range
+          const franchiseMin = franchise.investmentMin;
+          const franchiseMax = franchise.investmentMax;
+          
+          // Overlaps if: franchise_min <= selected_max AND franchise_max >= selected_min
+          if (!(franchiseMin <= selectedRange.max && franchiseMax >= selectedRange.min)) {
+            return false;
+          }
+        }
       }
       return true;
     });
@@ -464,9 +589,19 @@ export class MemStorage implements IStorage {
   async createFranchise(insertFranchise: InsertFranchise): Promise<Franchise> {
     const id = this.currentFranchiseId++;
     const franchise: Franchise = {
-      ...insertFranchise,
       id,
-      createdAt: new Date(),
+      name: insertFranchise.name,
+      description: insertFranchise.description || null,
+      category: insertFranchise.category,
+      country: insertFranchise.country,
+      state: insertFranchise.state || null,
+      investmentRange: insertFranchise.investmentRange || null,
+      imageUrl: insertFranchise.imageUrl || null,
+      contactEmail: insertFranchise.contactEmail || null,
+      investmentMin: insertFranchise.investmentMin || null,
+      investmentMax: insertFranchise.investmentMax || null,
+      isActive: insertFranchise.isActive ?? true,
+      createdAt: new Date()
     };
     this.franchises.set(id, franchise);
     return franchise;
@@ -487,7 +622,6 @@ export class MemStorage implements IStorage {
     maxPrice?: number;
   }): Promise<Business[]> {
     const allBusinesses = await this.getAllBusinesses();
-    
     return allBusinesses.filter(business => {
       if (filters.category && filters.category !== "All Business Categories" && business.category !== filters.category) {
         return false;
@@ -508,27 +642,203 @@ export class MemStorage implements IStorage {
   async createBusiness(insertBusiness: InsertBusiness): Promise<Business> {
     const id = this.currentBusinessId++;
     const business: Business = {
-      ...insertBusiness,
       id,
-      createdAt: new Date(),
+      name: insertBusiness.name,
+      description: insertBusiness.description || null,
+      category: insertBusiness.category,
+      country: insertBusiness.country,
+      state: insertBusiness.state || null,
+      price: insertBusiness.price || null,
+      imageUrl: insertBusiness.imageUrl || null,
+      contactEmail: insertBusiness.contactEmail || null,
+      package: insertBusiness.package || null,
+      yearEstablished: insertBusiness.yearEstablished || null,
+      employees: insertBusiness.employees || null,
+      revenue: insertBusiness.revenue || null,
+      reason: insertBusiness.reason || null,
+      assets: insertBusiness.assets || null,
+      status: "pending",
+      paymentStatus: "unpaid",
+      isActive: false,
+      userId: insertBusiness.userId || null,
+      createdAt: new Date()
     };
     this.businesses.set(id, business);
     return business;
   }
 
+  async getAllBusinessesForAdmin(): Promise<Business[]> {
+    return Array.from(this.businesses.values());
+  }
+
+  async updateBusinessStatus(id: number, status: string, isActive?: boolean): Promise<Business | undefined> {
+    const business = this.businesses.get(id);
+    if (!business) return undefined;
+    
+    business.status = status;
+    if (isActive !== undefined) {
+      business.isActive = isActive;
+    }
+    
+    this.businesses.set(id, business);
+    return business;
+  }
+
   async getAllAdvertisements(): Promise<Advertisement[]> {
-    return Array.from(this.advertisements.values()).filter(a => a.isActive);
+    return Array.from(this.advertisements.values()).filter(ad => ad.isActive);
+  }
+
+  async getAllAdvertisementsForAdmin(): Promise<Advertisement[]> {
+    return Array.from(this.advertisements.values());
   }
 
   async createAdvertisement(insertAd: InsertAdvertisement): Promise<Advertisement> {
     const id = this.currentAdId++;
     const ad: Advertisement = {
-      ...insertAd,
       id,
-      createdAt: new Date(),
+      title: insertAd.title,
+      description: insertAd.description || null,
+      imageUrl: insertAd.imageUrl,
+      targetUrl: insertAd.targetUrl || null,
+      package: insertAd.package || null,
+      company: insertAd.company || null,
+      contactEmail: insertAd.contactEmail || null,
+      contactPhone: insertAd.contactPhone || null,
+      budget: insertAd.budget || null,
+      status: "pending",
+      paymentStatus: "unpaid",
+      isActive: false,
+      userId: insertAd.userId || null,
+      createdAt: new Date()
     };
     this.advertisements.set(id, ad);
     return ad;
+  }
+
+  async updateAdvertisementStatus(id: number, status: string, isActive?: boolean): Promise<Advertisement | undefined> {
+    const ad = this.advertisements.get(id);
+    if (ad) {
+      ad.status = status;
+      if (isActive !== undefined) {
+        ad.isActive = isActive;
+      }
+      this.advertisements.set(id, ad);
+      return ad;
+    }
+    return undefined;
+  }
+
+  async getAllInquiries(): Promise<Inquiry[]> {
+    return Array.from(this.inquiries.values());
+  }
+
+  async createInquiry(insertInquiry: InsertInquiry): Promise<Inquiry> {
+    const id = this.currentInquiryId++;
+    const inquiry: Inquiry = {
+      id,
+      name: insertInquiry.name,
+      email: insertInquiry.email,
+      phone: insertInquiry.phone || null,
+      subject: insertInquiry.subject,
+      message: insertInquiry.message,
+      franchiseId: insertInquiry.franchiseId || null,
+      businessId: insertInquiry.businessId || null,
+      status: insertInquiry.status || "pending",
+      createdAt: new Date()
+    };
+    this.inquiries.set(id, inquiry);
+    return inquiry;
+  }
+
+  async getInquiryById(id: number): Promise<Inquiry | undefined> {
+    return this.inquiries.get(id);
+  }
+
+  async updateInquiryStatus(id: number, status: string): Promise<Inquiry | undefined> {
+    const inquiry = this.inquiries.get(id);
+    if (inquiry) {
+      inquiry.status = status;
+      this.inquiries.set(id, inquiry);
+      return inquiry;
+    }
+    return undefined;
+  }
+
+  async updateUserPassword(email: string, hashedPassword: string): Promise<User | undefined> {
+    const users = Array.from(this.users.values());
+    const user = users.find(u => u.email === email);
+    if (user) {
+      user.password = hashedPassword;
+      this.users.set(user.id, user);
+      return user;
+    }
+    return undefined;
+  }
+
+  async createPasswordResetToken(email: string, token: string, expiresAt: Date): Promise<void> {
+    const id = this.currentTokenId++;
+    const resetToken: PasswordResetToken = {
+      id,
+      email,
+      token,
+      expiresAt,
+      used: false,
+      createdAt: new Date()
+    };
+    this.passwordResetTokens.set(token, resetToken);
+  }
+
+  async getPasswordResetToken(token: string): Promise<PasswordResetToken | undefined> {
+    return this.passwordResetTokens.get(token);
+  }
+
+  async markPasswordResetTokenUsed(token: string): Promise<void> {
+    const resetToken = this.passwordResetTokens.get(token);
+    if (resetToken) {
+      resetToken.used = true;
+      this.passwordResetTokens.set(token, resetToken);
+    }
+  }
+
+  async getAdvertisementById(id: number): Promise<Advertisement | undefined> {
+    return this.advertisements.get(id);
+  }
+
+  async updateBusiness(id: number, data: Partial<Business>): Promise<Business | undefined> {
+    const business = this.businesses.get(id);
+    if (!business) return undefined;
+    
+    // Filter out fields that customers shouldn't be able to change and update the business
+    const { status, isActive, paymentStatus, userId, createdAt, ...updateData } = data;
+    Object.assign(business, updateData);
+    
+    this.businesses.set(id, business);
+    return business;
+  }
+
+  async updateAdvertisement(id: number, data: Partial<Advertisement>): Promise<Advertisement | undefined> {
+    const advertisement = this.advertisements.get(id);
+    if (!advertisement) return undefined;
+    
+    // Filter out fields that customers shouldn't be able to change and update the advertisement
+    const { status, isActive, paymentStatus, userId, createdAt, ...updateData } = data;
+    Object.assign(advertisement, updateData);
+    
+    this.advertisements.set(id, advertisement);
+    return advertisement;
+  }
+
+  async getAllFranchisesForAdmin(): Promise<Franchise[]> {
+    return Array.from(this.franchises.values());
+  }
+
+  async updateFranchiseStatus(id: number, isActive: boolean): Promise<Franchise | undefined> {
+    const franchise = this.franchises.get(id);
+    if (!franchise) return undefined;
+    
+    franchise.isActive = isActive;
+    this.franchises.set(id, franchise);
+    return franchise;
   }
 }
 
