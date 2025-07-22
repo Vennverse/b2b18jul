@@ -10,7 +10,7 @@ export default function SimpleAuth({ isOpen, onClose }: SimpleAuthProps) {
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [isResetPassword, setIsResetPassword] = useState(false);
   const [showResetForm, setShowResetForm] = useState(false);
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -30,7 +30,7 @@ export default function SimpleAuth({ isOpen, onClose }: SimpleAuthProps) {
         const response = await fetch("/api/auth/forgot-password", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email }),
+          body: JSON.stringify({ username }),
         });
 
         if (response.ok) {
@@ -53,8 +53,8 @@ export default function SimpleAuth({ isOpen, onClose }: SimpleAuthProps) {
         // Handle login/register
         const url = isLogin ? "/api/auth/login" : "/api/auth/register";
         const body = isLogin 
-          ? { email, password }
-          : { email, password, firstName, lastName };
+          ? { username, password }
+          : { username, password, firstName, lastName };
 
         const response = await fetch(url, {
           method: "POST",
@@ -259,10 +259,10 @@ export default function SimpleAuth({ isOpen, onClose }: SimpleAuthProps) {
               )}
 
               <input
-                type="email"
-                placeholder="Email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                type="text"
+                placeholder="Username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 required
                 style={{
                   width: "100%",

@@ -29,7 +29,7 @@ export default function Header() {
     }
 
     try {
-      const response = await fetch("/api/auth/me", {
+      const response = await fetch("/api/auth/user", {
         headers: { Authorization: `Bearer ${token}` },
       });
       

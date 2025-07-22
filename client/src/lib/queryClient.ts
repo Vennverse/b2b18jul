@@ -26,7 +26,10 @@ export async function apiRequest(
 
   // Convert API paths to Netlify functions for serverless deployment
   if (import.meta.env.PROD && url.startsWith('/api/')) {
-    url = url.replace('/api/', '/.netlify/functions/');
+    url = url.replace('/api/', '/.netlify/functions/')
+      .replace('/auth/register', '/auth-register')
+      .replace('/auth/login', '/auth-login')
+      .replace('/auth/user', '/auth-user');
   }
 
   const res = await fetch(url, {
@@ -57,7 +60,10 @@ export const getQueryFn: <T>(options: {
     // Convert API paths to Netlify functions for serverless deployment
     let url = queryKey[0] as string;
     if (import.meta.env.PROD && url.startsWith('/api/')) {
-      url = url.replace('/api/', '/.netlify/functions/');
+      url = url.replace('/api/', '/.netlify/functions/')
+        .replace('/auth/register', '/auth-register')
+        .replace('/auth/login', '/auth-login')
+        .replace('/auth/user', '/auth-user');
     }
     
     const res = await fetch(url, {

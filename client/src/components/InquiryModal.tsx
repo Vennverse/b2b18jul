@@ -28,10 +28,14 @@ export default function InquiryModal({ isOpen, onClose, item, type }: InquiryMod
 
   const submitMutation = useMutation({
     mutationFn: async (data: any) => {
-      const endpoint = type === "franchise" 
-        ? `/api/franchises/${item?.id}/inquire`
-        : `/api/businesses/${item?.id}/inquire`;
-      return apiRequest("POST", endpoint, { ...data, phone: null });
+      const inquiryData = {
+        ...data,
+        phone: null,
+        subject: `Inquiry about ${item?.name}`,
+        franchiseId: type === "franchise" ? item?.id : null,
+        businessId: type === "business" ? item?.id : null,
+      };
+      return apiRequest("POST", "/api/contact", inquiryData);
     },
     onSuccess: () => {
       toast({
