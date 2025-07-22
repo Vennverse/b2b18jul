@@ -30,28 +30,32 @@ export const handler: Handler = async (event) => {
 
   try {
     if (event.httpMethod === 'GET') {
-      const { category, country, state, maxPrice } = event.queryStringParameters || {};
+      const queryParams = event.queryStringParameters || {};
+      const { category, country, state, maxPrice } = queryParams;
       
       // Use raw SQL to match your exact database schema
       let sql = 'SELECT * FROM businesses WHERE is_active = true';
-      const conditions = [];
-      const params = [];
+      const conditions: string[] = [];
+      const params: (string | number)[] = [];
       
-      if (category) {
+      if (category && typeof category === 'string') {
         conditions.push(`category = $${params.length + 1}`);
         params.push(category);
       }
-      if (country) {
+      if (country && typeof country === 'string') {
         conditions.push(`country = $${params.length + 1}`);
         params.push(country);
       }
-      if (state) {
+      if (state && typeof state === 'string') {
         conditions.push(`state = $${params.length + 1}`);
         params.push(state);
       }
-      if (maxPrice) {
-        conditions.push(`price <= $${params.length + 1}`);
-        params.push(parseInt(maxPrice));
+      if (maxPrice && typeof maxPrice === 'string') {
+        const price = parseInt(maxPrice);
+        if (!isNaN(price)) {
+          conditions.push(`price <= $${params.length + 1}`);
+          params.push(price);
+        }
       }
       
       if (conditions.length > 0) {

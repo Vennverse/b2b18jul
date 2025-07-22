@@ -2,7 +2,7 @@ import { Handler } from '@netlify/functions';
 import Stripe from 'stripe';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2024-10-28.acacia',
+  apiVersion: '2025-05-28.basil',
 });
 
 export const handler: Handler = async (event) => {
@@ -61,7 +61,7 @@ export const handler: Handler = async (event) => {
           headers,
           body: JSON.stringify({
             subscriptionId: subscription.id,
-            clientSecret: subscription.latest_invoice?.payment_intent?.client_secret,
+            clientSecret: (subscription.latest_invoice as any)?.payment_intent?.client_secret,
           }),
         };
       }

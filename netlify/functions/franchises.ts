@@ -30,7 +30,8 @@ export const handler: Handler = async (event) => {
 
   try {
     if (event.httpMethod === 'GET') {
-      const { category, country, state, priceRange } = event.queryStringParameters || {};
+      const queryParams = event.queryStringParameters || {};
+      const { category, country, state, priceRange } = queryParams;
       
       // Check if this is an admin request (looking for /api/admin/franchises)
       const isAdminRequest = event.path.includes('/admin/franchises');
@@ -40,29 +41,29 @@ export const handler: Handler = async (event) => {
         ? 'SELECT * FROM franchises' // Admin sees all franchises
         : 'SELECT * FROM franchises WHERE is_active = true'; // Public sees only active
       
-      const conditions = [];
-      const params = [];
+      const conditions: string[] = [];
+      const params: (string | number)[] = [];
       
-      if (category) {
+      if (category && typeof category === 'string') {
         conditions.push(`category = $${params.length + 1}`);
         params.push(category);
       }
-      if (country) {
+      if (country && typeof country === 'string') {
         conditions.push(`country = $${params.length + 1}`);
         params.push(country);
       }
-      if (state) {
+      if (state && typeof state === 'string') {
         conditions.push(`state = $${params.length + 1}`);
         params.push(state);
       }
       
-      if (priceRange) {
+      if (priceRange && typeof priceRange === 'string') {
         const [min, max] = priceRange.split('-').map(Number);
-        if (min) {
+        if (min && !isNaN(min)) {
           conditions.push(`investment_min >= $${params.length + 1}`);
           params.push(min);
         }
-        if (max) {
+        if (max && !isNaN(max)) {
           conditions.push(`investment_max <= $${params.length + 1}`);
           params.push(max);
         }
