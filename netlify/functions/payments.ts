@@ -1,35 +1,39 @@
 import { Handler } from '@netlify/functions';
 import Stripe from 'stripe';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2025-05-28.basil',
-});
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_placeholder');
 
-export const handler: Handler = async (event) => {
+export const handler: Handler = async (event, context) => {
   const headers = {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Content-Type': 'application/json',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Content-Type': 'application/json'
   };
 
   if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 200, headers };
+    return { statusCode: 200, headers, body: '' };
   }
-
-  const path = event.path.replace('/.netlify/functions/payments', '');
 
   try {
     if (event.httpMethod === 'POST') {
-      const data = JSON.parse(event.body || '{}');
+      const body = JSON.parse(event.body || '{}');
+      
+      if (event.path.includes('create-payment-intent')) {
+        const { amount, currency = 'usd', metadata = {} } = body;
 
-      // Create payment intent
-      if (path === '/create-payment-intent') {
-        const { amount, currency = 'usd' } = data;
-        
+        if (!amount || amount < 50) { // Stripe minimum is $0.50
+          return {
+            statusCode: 400,
+            headers,
+            body: JSON.stringify({ error: 'Amount must be at least $0.50' })
+          };
+        }
+
         const paymentIntent = await stripe.paymentIntents.create({
           amount: Math.round(amount * 100), // Convert to cents
           currency,
+          metadata,
           automatic_payment_methods: {
             enabled: true,
           },
@@ -40,14 +44,22 @@ export const handler: Handler = async (event) => {
           headers,
           body: JSON.stringify({
             clientSecret: paymentIntent.client_secret,
-          }),
+            paymentIntentId: paymentIntent.id
+          })
         };
       }
 
-      // Create subscription
-      if (path === '/create-subscription') {
-        const { priceId, customerId } = data;
-        
+      if (event.path.includes('create-subscription')) {
+        const { priceId, customerId } = body;
+
+        if (!priceId) {
+          return {
+            statusCode: 400,
+            headers,
+            body: JSON.stringify({ error: 'Price ID is required' })
+          };
+        }
+
         const subscription = await stripe.subscriptions.create({
           customer: customerId,
           items: [{ price: priceId }],
@@ -61,23 +73,23 @@ export const handler: Handler = async (event) => {
           headers,
           body: JSON.stringify({
             subscriptionId: subscription.id,
-            clientSecret: (subscription.latest_invoice as any)?.payment_intent?.client_secret,
-          }),
+            clientSecret: (subscription.latest_invoice as any)?.payment_intent?.client_secret
+          })
         };
       }
     }
 
     return {
-      statusCode: 404,
+      statusCode: 405,
       headers,
-      body: JSON.stringify({ error: 'Not found' }),
+      body: JSON.stringify({ error: 'Method not allowed' })
     };
   } catch (error) {
-    console.error('Error:', error);
+    console.error('Payment function error:', error);
     return {
       statusCode: 500,
       headers,
-      body: JSON.stringify({ error: 'Internal server error' }),
+      body: JSON.stringify({ error: 'Internal server error' })
     };
   }
 };

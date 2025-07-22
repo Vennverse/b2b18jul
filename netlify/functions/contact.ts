@@ -1,0 +1,65 @@
+import { Handler } from '@netlify/functions';
+import { Pool, neonConfig } from '@neondatabase/serverless';
+import { drizzle } from 'drizzle-orm/neon-serverless';
+import ws from 'ws';
+import { inquiries } from '../../shared/schema';
+
+// Configure Neon for serverless
+neonConfig.fetchConnectionCache = true;
+neonConfig.webSocketConstructor = ws;
+
+const pool = new Pool({ 
+  connectionString: 'postgresql://neondb_owner:npg_0CpHBlm2zqaF@ep-nameless-feather-a4dga2p7-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require',
+  max: 1 // Keep connections minimal for serverless
+});
+
+const db = drizzle(pool);
+
+export const handler: Handler = async (event, context) => {
+  const headers = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Content-Type': 'application/json'
+  };
+
+  if (event.httpMethod === 'OPTIONS') {
+    return { statusCode: 200, headers, body: '' };
+  }
+
+  try {
+    if (event.httpMethod === 'POST') {
+      const body = JSON.parse(event.body || '{}');
+      
+      const inquiry = await db.insert(inquiries).values({
+        name: body.name,
+        email: body.email,
+        phone: body.phone,
+        subject: body.subject,
+        message: body.message,
+        franchiseId: body.franchiseId || null,
+        businessId: body.businessId || null,
+        status: 'pending'
+      }).returning();
+
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({ message: 'Inquiry submitted successfully', inquiry: inquiry[0] })
+      };
+    }
+
+    return {
+      statusCode: 405,
+      headers,
+      body: JSON.stringify({ error: 'Method not allowed' })
+    };
+  } catch (error) {
+    console.error('Contact function error:', error);
+    return {
+      statusCode: 500,
+      headers,
+      body: JSON.stringify({ error: 'Internal server error' })
+    };
+  }
+};

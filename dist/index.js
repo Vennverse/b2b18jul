@@ -15,43 +15,24 @@ var schema_exports = {};
 __export(schema_exports, {
   advertisements: () => advertisements,
   businesses: () => businesses,
-  forgotPasswordSchema: () => forgotPasswordSchema,
   franchises: () => franchises,
   inquiries: () => inquiries,
   insertAdvertisementSchema: () => insertAdvertisementSchema,
   insertBusinessSchema: () => insertBusinessSchema,
   insertFranchiseSchema: () => insertFranchiseSchema,
   insertInquirySchema: () => insertInquirySchema,
-  insertPasswordResetTokenSchema: () => insertPasswordResetTokenSchema,
   insertUserSchema: () => insertUserSchema,
   loginSchema: () => loginSchema,
-  passwordResetTokens: () => passwordResetTokens,
   registerSchema: () => registerSchema,
-  resetPasswordSchema: () => resetPasswordSchema,
-  sessions: () => sessions,
   users: () => users
 });
-import { pgTable, text, serial, integer, boolean, timestamp, varchar, jsonb, index } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 var users = pgTable("users", {
   id: serial("id").primaryKey(),
-  email: text("email").notNull().unique(),
-  password: text("password").notNull(),
-  firstName: text("first_name"),
-  lastName: text("last_name"),
-  role: text("role").notNull().default("user"),
-  // "user" or "admin"
-  isActive: boolean("is_active").default(true),
-  createdAt: timestamp("created_at").defaultNow()
-});
-var passwordResetTokens = pgTable("password_reset_tokens", {
-  id: serial("id").primaryKey(),
-  email: text("email").notNull(),
-  token: text("token").notNull().unique(),
-  expiresAt: timestamp("expires_at").notNull(),
-  used: boolean("used").default(false),
-  createdAt: timestamp("created_at").defaultNow()
+  username: text("username").notNull().unique(),
+  password: text("password").notNull()
 });
 var franchises = pgTable("franchises", {
   id: serial("id").primaryKey(),
@@ -70,7 +51,6 @@ var franchises = pgTable("franchises", {
 });
 var businesses = pgTable("businesses", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").references(() => users.id),
   name: text("name").notNull(),
   description: text("description"),
   category: text("category").notNull(),
@@ -92,7 +72,6 @@ var businesses = pgTable("businesses", {
 });
 var advertisements = pgTable("advertisements", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").references(() => users.id),
   title: text("title").notNull(),
   description: text("description"),
   imageUrl: text("image_url").notNull(),
@@ -121,42 +100,17 @@ var inquiries = pgTable("inquiries", {
   status: text("status").default("pending"),
   createdAt: timestamp("created_at").defaultNow()
 });
-var sessions = pgTable(
-  "sessions",
-  {
-    sid: varchar("sid").primaryKey(),
-    sess: jsonb("sess").notNull(),
-    expire: timestamp("expire").notNull()
-  },
-  (table) => [index("IDX_session_expire").on(table.expire)]
-);
 var insertUserSchema = createInsertSchema(users).pick({
-  email: true,
-  password: true,
-  firstName: true,
-  lastName: true
+  username: true,
+  password: true
 });
 var loginSchema = z.object({
-  email: z.string().email(),
+  username: z.string().min(1),
   password: z.string().min(6)
 });
 var registerSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(6),
-  firstName: z.string().min(1),
-  lastName: z.string().min(1)
-});
-var forgotPasswordSchema = z.object({
-  email: z.string().email()
-});
-var resetPasswordSchema = z.object({
-  token: z.string(),
+  username: z.string().min(1),
   password: z.string().min(6)
-});
-var insertPasswordResetTokenSchema = createInsertSchema(passwordResetTokens).pick({
-  email: true,
-  token: true,
-  expiresAt: true
 });
 var insertFranchiseSchema = createInsertSchema(franchises).omit({
   id: true,
@@ -180,12 +134,9 @@ import { Pool, neonConfig } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-serverless";
 import ws from "ws";
 neonConfig.webSocketConstructor = ws;
-if (!process.env.DATABASE_URL) {
-  throw new Error(
-    "DATABASE_URL must be set. Did you forget to provision a database?"
-  );
-}
-var pool = new Pool({ connectionString: process.env.DATABASE_URL });
+neonConfig.fetchConnectionCache = true;
+var DATABASE_URL = process.env.DATABASE_URL || "postgresql://neondb_owner:npg_0CpHBlm2zqaF@ep-nameless-feather-a4dga2p7-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require";
+var pool = new Pool({ connectionString: DATABASE_URL });
 var db = drizzle({ client: pool, schema: schema_exports });
 
 // server/storage.ts
@@ -210,15 +161,9 @@ var DatabaseStorage = class {
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user || void 0;
   }
-  async getUserByEmail(email) {
-    const [user] = await db.select().from(users).where(eq(users.email, email));
+  async getUserByUsername(username) {
+    const [user] = await db.select().from(users).where(eq(users.username, username));
     return user || void 0;
-  }
-  async getUserBusinesses(userId) {
-    return await db.select().from(businesses).where(eq(businesses.userId, userId));
-  }
-  async getUserAdvertisements(userId) {
-    return await db.select().from(advertisements).where(eq(advertisements.userId, userId));
   }
   async createUser(insertUser) {
     const [user] = await db.insert(users).values(insertUser).returning();
@@ -319,21 +264,25 @@ var DatabaseStorage = class {
     return await db.select().from(advertisements);
   }
   async createAdvertisement(insertAd) {
-    const [ad] = await db.insert(advertisements).values({
+    const [advertisement] = await db.insert(advertisements).values({
       ...insertAd,
       status: "pending",
       paymentStatus: "unpaid",
       isActive: false
     }).returning();
-    return ad;
+    return advertisement;
   }
   async updateAdvertisementStatus(id, status, isActive) {
     const updateData = { status };
     if (isActive !== void 0) {
       updateData.isActive = isActive;
     }
-    const [ad] = await db.update(advertisements).set(updateData).where(eq(advertisements.id, id)).returning();
-    return ad || void 0;
+    const [advertisement] = await db.update(advertisements).set(updateData).where(eq(advertisements.id, id)).returning();
+    return advertisement || void 0;
+  }
+  async getAdvertisementById(id) {
+    const [advertisement] = await db.select().from(advertisements).where(eq(advertisements.id, id));
+    return advertisement || void 0;
   }
   async getAllInquiries() {
     return await db.select().from(inquiries);
@@ -350,29 +299,8 @@ var DatabaseStorage = class {
     const [inquiry] = await db.update(inquiries).set({ status }).where(eq(inquiries.id, id)).returning();
     return inquiry || void 0;
   }
-  async updateUserPassword(email, hashedPassword) {
-    const [user] = await db.update(users).set({ password: hashedPassword }).where(eq(users.email, email)).returning();
-    return user;
-  }
-  async createPasswordResetToken(email, token, expiresAt) {
-    await db.insert(passwordResetTokens).values({
-      email,
-      token,
-      expiresAt
-    });
-  }
-  async getPasswordResetToken(token) {
-    const [resetToken] = await db.select().from(passwordResetTokens).where(eq(passwordResetTokens.token, token));
-    return resetToken;
-  }
-  async markPasswordResetTokenUsed(token) {
-    await db.update(passwordResetTokens).set({ used: true }).where(eq(passwordResetTokens.token, token));
-  }
 };
 var storage = new DatabaseStorage();
-
-// server/routes.ts
-import crypto from "crypto";
 
 // server/auth.ts
 import bcrypt from "bcryptjs";
@@ -441,161 +369,6 @@ async function requireAuth(req, res, next) {
   }
 }
 
-// server/emailService.ts
-import { MailService } from "@sendgrid/mail";
-import nodemailer from "nodemailer";
-async function sendEmail(options) {
-  console.log(`=== EMAIL SEND ATTEMPT ===`);
-  console.log(`To: ${options.to}`);
-  console.log(`Subject: ${options.subject}`);
-  console.log(`SENDGRID_API_KEY available: ${!!process.env.SENDGRID_API_KEY}`);
-  console.log(`EMAIL_USER available: ${!!process.env.EMAIL_USER}`);
-  console.log(`EMAIL_PASS available: ${!!process.env.EMAIL_PASS}`);
-  if (!process.env.EMAIL_USER && !process.env.EMAIL_PASS && !process.env.SENDGRID_API_KEY) {
-    console.log(`\u26A0\uFE0F  EMAIL CONFIGURATION NEEDED:`);
-    console.log(`   Option 1 (Gmail): Set EMAIL_USER and EMAIL_PASS environment variables`);
-    console.log(`   Option 2 (SendGrid): Verify sender address at https://app.sendgrid.com/settings/sender_auth`);
-    console.log(`   See EMAIL_CONFIGURATION.md for detailed setup instructions`);
-  }
-  if (process.env.SENDGRID_API_KEY) {
-    try {
-      console.log("Attempting SendGrid email delivery...");
-      const mailService = new MailService();
-      mailService.setApiKey(process.env.SENDGRID_API_KEY);
-      await mailService.send({
-        to: options.to,
-        from: "noreply@b2bmarket.com",
-        subject: options.subject,
-        html: options.html
-      });
-      console.log(`\u{1F389} SUCCESS: Email sent via SendGrid to ${options.to}`);
-      return true;
-    } catch (error) {
-      console.log(`SendGrid failed: ${error.message}`);
-      if (error.response) {
-        console.log(`SendGrid response:`, error.response.body);
-      }
-      if (error.message.includes("Sender Identity")) {
-        console.log("\u{1F4E7} To fix SendGrid emails:");
-        console.log("1. Go to https://app.sendgrid.com/settings/sender_auth");
-        console.log("2. Add and verify noreply@b2bmarket.com as sender");
-        console.log("3. Or use a verified domain you own");
-      }
-    }
-  }
-  if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
-    console.log(`Attempting real email delivery with: ${process.env.EMAIL_USER}`);
-    const emailDomain = process.env.EMAIL_USER.toLowerCase();
-    const isGmail = emailDomain.includes("@gmail.com");
-    const isOutlook = emailDomain.includes("@outlook.") || emailDomain.includes("@hotmail.") || emailDomain.includes("@live.");
-    const providers = [];
-    if (isGmail) {
-      providers.push(
-        {
-          name: "Gmail Service",
-          config: { service: "gmail", auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS } }
-        },
-        {
-          name: "Gmail SMTP",
-          config: { host: "smtp.gmail.com", port: 587, secure: false, auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS } }
-        }
-      );
-    } else if (isOutlook) {
-      providers.push(
-        {
-          name: "Outlook Service",
-          config: { service: "outlook", auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS } }
-        },
-        {
-          name: "Outlook SMTP",
-          config: { host: "smtp-mail.outlook.com", port: 587, secure: false, auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS } }
-        }
-      );
-    } else {
-      providers.push({
-        name: "Generic SMTP",
-        config: { host: "smtp.gmail.com", port: 587, secure: false, auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS } }
-      });
-    }
-    for (const provider of providers) {
-      try {
-        console.log(`Trying ${provider.name}...`);
-        const transporter = nodemailer.createTransport(provider.config);
-        const result = await transporter.sendMail({
-          from: `"B2B Market" <${process.env.EMAIL_USER}>`,
-          to: options.to,
-          subject: options.subject,
-          html: options.html
-        });
-        console.log(`\u{1F389} SUCCESS: Real email sent via ${provider.name} to ${options.to}`);
-        console.log(`Message ID: ${result.messageId}`);
-        if (result.response) console.log(`Response: ${result.response}`);
-        return true;
-      } catch (error) {
-        console.log(`${provider.name} failed: ${error.message}`);
-        if (error.code) console.log(`Error code: ${error.code}`);
-        if (isGmail && error.code === "EAUTH") {
-          console.log(`\u{1F527} Gmail Fix: Generate an App Password at https://myaccount.google.com/security`);
-          console.log(`\u{1F527} Use the 16-character app password instead of your regular password`);
-        }
-      }
-    }
-    console.log(`\u274C All ${providers.length} email provider(s) failed`);
-  } else {
-    console.log(`\u274C CRITICAL: No email credentials provided!`);
-    console.log(`Please set EMAIL_USER and EMAIL_PASS environment variables`);
-  }
-  console.log(`\u26A0\uFE0F Falling back to test email service - NO REAL EMAIL WILL BE SENT`);
-  try {
-    const testAccount = await nodemailer.createTestAccount();
-    const transporter = nodemailer.createTransport({
-      host: "smtp.ethereal.email",
-      port: 587,
-      secure: false,
-      auth: {
-        user: testAccount.user,
-        pass: testAccount.pass
-      }
-    });
-    const info = await transporter.sendMail({
-      from: '"B2B Market" <noreply@b2bmarket.com>',
-      to: options.to,
-      subject: options.subject,
-      html: options.html
-    });
-    const previewUrl = nodemailer.getTestMessageUrl(info);
-    console.log(`\u{1F4E7} Preview email created: ${previewUrl}`);
-    console.log(`\u274C WARNING: This is only a preview - no real email sent to ${options.to}`);
-    return false;
-  } catch (error) {
-    console.error("\u274C All email methods failed completely:", error);
-    return false;
-  }
-}
-function createPasswordResetEmail(email, resetToken) {
-  const baseUrl = process.env.NODE_ENV === "production" ? "https://your-domain.com" : "http://localhost:5000";
-  const resetUrl = `${baseUrl}/reset-password?token=${resetToken}`;
-  return {
-    to: email,
-    subject: "Reset Your Password - B2B Market",
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #333;">Reset Your Password</h2>
-        <p>You requested to reset your password for your B2B Market account.</p>
-        <p>Click the link below to reset your password:</p>
-        <a href="${resetUrl}" style="display: inline-block; background-color: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; margin: 20px 0;">Reset Password</a>
-        <p>Or copy and paste this link into your browser:</p>
-        <p style="word-break: break-all; color: #666;">${resetUrl}</p>
-        <p>This link will expire in 1 hour for security reasons.</p>
-        <p>If you didn't request this password reset, please ignore this email.</p>
-        <hr style="margin: 30px 0;">
-        <p style="color: #666; font-size: 14px;">B2B Market Team</p>
-      </div>
-    `,
-    resetToken
-  };
-}
-
 // server/routes.ts
 async function initializeStripe() {
   if (process.env.STRIPE_SECRET_KEY) {
@@ -610,16 +383,14 @@ async function registerRoutes(app2) {
   app2.post("/api/auth/register", async (req, res) => {
     try {
       const validatedData = registerSchema.parse(req.body);
-      const existingUser = await storage.getUserByEmail(validatedData.email);
+      const existingUser = await storage.getUserByUsername(validatedData.username);
       if (existingUser) {
-        return res.status(400).json({ error: "User already exists with this email" });
+        return res.status(400).json({ error: "User already exists with this username" });
       }
       const hashedPassword = await hashPassword(validatedData.password);
       const newUser = await storage.createUser({
-        email: validatedData.email,
-        password: hashedPassword,
-        firstName: validatedData.firstName,
-        lastName: validatedData.lastName
+        username: validatedData.username,
+        password: hashedPassword
       });
       const token = generateToken(newUser.id);
       req.session.userId = newUser.id;
@@ -637,16 +408,13 @@ async function registerRoutes(app2) {
   app2.post("/api/auth/login", async (req, res) => {
     try {
       const validatedData = loginSchema.parse(req.body);
-      const user = await storage.getUserByEmail(validatedData.email);
+      const user = await storage.getUserByUsername(validatedData.username);
       if (!user) {
-        return res.status(401).json({ error: "Invalid email or password" });
+        return res.status(401).json({ error: "Invalid username or password" });
       }
       const isValidPassword = await verifyPassword(validatedData.password, user.password);
       if (!isValidPassword) {
-        return res.status(401).json({ error: "Invalid email or password" });
-      }
-      if (!user.isActive) {
-        return res.status(401).json({ error: "Account is inactive" });
+        return res.status(401).json({ error: "Invalid username or password" });
       }
       const token = generateToken(user.id);
       req.session.userId = user.id;
@@ -673,85 +441,6 @@ async function registerRoutes(app2) {
     const user = req.user;
     const { password, ...userWithoutPassword } = user;
     res.json(userWithoutPassword);
-  });
-  app2.post("/api/auth/forgot-password", async (req, res) => {
-    try {
-      const { email } = forgotPasswordSchema.parse(req.body);
-      const user = await storage.getUserByEmail(email);
-      if (!user) {
-        return res.json({ message: "If an account with that email exists, we've sent a password reset link." });
-      }
-      const resetToken = crypto.randomBytes(32).toString("hex");
-      const expiresAt = new Date(Date.now() + 36e5);
-      await storage.createPasswordResetToken(email, resetToken, expiresAt);
-      const emailOptions = createPasswordResetEmail(email, resetToken);
-      const emailSent = await sendEmail(emailOptions);
-      if (emailSent) {
-        res.json({
-          message: "Password reset email sent successfully! Check your inbox for the reset link.",
-          success: true
-        });
-      } else {
-        res.json({
-          message: "Password reset link generated. Since email delivery is not configured, you can reset your password directly using the link below:",
-          resetLink: `http://localhost:5000/reset-password?token=${resetToken}`,
-          success: true,
-          token: resetToken,
-          instructions: "Click the reset link above or copy it to your browser to reset your password."
-        });
-      }
-    } catch (error) {
-      console.error("Forgot password error:", error);
-      res.status(400).json({ error: "Failed to process request" });
-    }
-  });
-  app2.post("/api/auth/reset-password", async (req, res) => {
-    try {
-      const { token, password } = resetPasswordSchema.parse(req.body);
-      const resetToken = await storage.getPasswordResetToken(token);
-      if (!resetToken || resetToken.used) {
-        return res.status(400).json({ error: "Invalid or expired reset token" });
-      }
-      if (/* @__PURE__ */ new Date() > resetToken.expiresAt) {
-        return res.status(400).json({ error: "Reset token has expired" });
-      }
-      const hashedPassword = await hashPassword(password);
-      const updatedUser = await storage.updateUserPassword(resetToken.email, hashedPassword);
-      if (!updatedUser) {
-        return res.status(404).json({ error: "User not found" });
-      }
-      await storage.markPasswordResetTokenUsed(token);
-      res.json({ message: "Password reset successful" });
-    } catch (error) {
-      console.error("Reset password error:", error);
-      res.status(400).json({ error: "Failed to reset password" });
-    }
-  });
-  app2.get("/api/user/businesses", requireAuth, async (req, res) => {
-    try {
-      const userId = req.user.id;
-      const businesses2 = await storage.getUserBusinesses(userId);
-      res.json(businesses2);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch user businesses" });
-    }
-  });
-  app2.get("/api/user/advertisements", requireAuth, async (req, res) => {
-    try {
-      const userId = req.user.id;
-      const advertisements2 = await storage.getUserAdvertisements(userId);
-      res.json(advertisements2);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch user advertisements" });
-    }
-  });
-  app2.get("/api/user/franchises", requireAuth, async (req, res) => {
-    try {
-      const franchises2 = await storage.getAllFranchises();
-      res.json(franchises2);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch franchises" });
-    }
   });
   app2.get("/api/franchises", async (req, res) => {
     try {
@@ -871,6 +560,29 @@ async function registerRoutes(app2) {
       res.status(400).json({ error: "Invalid business data" });
     }
   });
+  app2.patch("/api/businesses/:id", requireAuth, async (req, res) => {
+    try {
+      const userId = req.user.id;
+      const businessId = parseInt(req.params.id);
+      const existingBusiness = await storage.getBusinessById(businessId);
+      if (!existingBusiness) {
+        return res.status(404).json({ error: "Business not found" });
+      }
+      if (existingBusiness.userId !== userId) {
+        return res.status(403).json({ error: "You can only edit your own businesses" });
+      }
+      const updateSchema = insertBusinessSchema.omit({ userId: true }).partial();
+      const validatedData = updateSchema.parse(req.body);
+      const updatedBusiness = await storage.updateBusiness(businessId, validatedData);
+      if (!updatedBusiness) {
+        return res.status(404).json({ error: "Business not found" });
+      }
+      res.json(updatedBusiness);
+    } catch (error) {
+      console.error("Business update error:", error);
+      res.status(400).json({ error: "Invalid business data" });
+    }
+  });
   app2.get("/api/admin/businesses", async (req, res) => {
     try {
       const businesses2 = await storage.getAllBusinessesForAdmin();
@@ -917,6 +629,29 @@ async function registerRoutes(app2) {
       res.status(201).json(advertisement);
     } catch (error) {
       console.error("Advertisement creation error:", error);
+      res.status(400).json({ error: "Invalid advertisement data" });
+    }
+  });
+  app2.patch("/api/advertisements/:id", requireAuth, async (req, res) => {
+    try {
+      const userId = req.user.id;
+      const advertisementId = parseInt(req.params.id);
+      const existingAd = await storage.getAdvertisementById(advertisementId);
+      if (!existingAd) {
+        return res.status(404).json({ error: "Advertisement not found" });
+      }
+      if (existingAd.userId !== userId) {
+        return res.status(403).json({ error: "You can only edit your own advertisements" });
+      }
+      const updateSchema = insertAdvertisementSchema.omit({ userId: true }).partial();
+      const validatedData = updateSchema.parse(req.body);
+      const updatedAd = await storage.updateAdvertisement(advertisementId, validatedData);
+      if (!updatedAd) {
+        return res.status(404).json({ error: "Advertisement not found" });
+      }
+      res.json(updatedAd);
+    } catch (error) {
+      console.error("Advertisement update error:", error);
       res.status(400).json({ error: "Invalid advertisement data" });
     }
   });

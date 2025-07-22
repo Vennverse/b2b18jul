@@ -24,6 +24,11 @@ export async function apiRequest(
     headers.Authorization = `Bearer ${token}`;
   }
 
+  // Convert API paths to Netlify functions for serverless deployment
+  if (import.meta.env.PROD && url.startsWith('/api/')) {
+    url = url.replace('/api/', '/.netlify/functions/');
+  }
+
   const res = await fetch(url, {
     method,
     headers,
@@ -49,7 +54,13 @@ export const getQueryFn: <T>(options: {
       headers.Authorization = `Bearer ${token}`;
     }
 
-    const res = await fetch(queryKey[0] as string, {
+    // Convert API paths to Netlify functions for serverless deployment
+    let url = queryKey[0] as string;
+    if (import.meta.env.PROD && url.startsWith('/api/')) {
+      url = url.replace('/api/', '/.netlify/functions/');
+    }
+    
+    const res = await fetch(url, {
       headers,
       credentials: "include",
     });
